@@ -45,7 +45,7 @@ export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
 
 set +e
 
-VAULT_NAMESPACE=${VAULT_NAMESPACE:-"247networksoftware1"}
+VAULT_NAMESPACE=${VAULT_NAMESPACE:-"vault"}
 KUBE_HOST=$(kubectl config view --raw --minify | grep "server:" | awk '{print $NF}')
 KUBE_CA_CERT=$(kubectl config view --raw --minify | grep "certificate-authority-data:" | awk '{print $NF}' | base64 -d)
 TOKEN_REVIEW_JWT=$(kubectl get serviceaccount secret-consumer -n ${nameSpace} -o jsonpath='{.secrets[0].name}' | xargs -n 1 kubectl get secret -n naas -o jsonpath='{.data.token}' | base64 -d)

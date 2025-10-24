@@ -20,7 +20,7 @@ spec:
       nameSpace: ${nameSpace}
       appName: ${appName}
       registryName: ${registryName}
-      repoName: ${repoName}
+      chartName: ${chartName}
     substituteFrom:
       - kind: ConfigMap
         name: cluster-config

@@ -8,9 +8,9 @@ set -euo pipefail
 
 function usage()
 {
-    echo "usage ${0} [--debug] [--tls-skip] --secrets <secrets file>" >&2
+    echo "usage ${0} [--debug] [--tls-skip]" >&2
     echo "This script will create secrets in Vault" >&2
-    echo " The --secrets option should reference a bash script which sets the github secrets" >&2
+    echo " The json files in resources/secrets will be loaded into Vault" >&2
     echo "use the --tls-skip option to load data prior to ingress certificate setup" >&2
 }
 
@@ -24,7 +24,6 @@ function args() {
   debug_str=""
   while (( arg_index < arg_count )); do
     case "${arg_list[${arg_index}]}" in
-          "--secrets") (( arg_index+=1 ));secrets_file=${arg_list[${arg_index}]};;
           "--debug") set -x; debug_str="--debug";;
           "--tls-skip") tls_skip="-tls-skip-verify"; script_tls_skip="--tls-skip";;
                "-h") usage; exit;;
@@ -44,9 +43,6 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
-
-source ${secrets_file}
-source $(local_or_global resources/github-config.sh)
 
 vault kv put ${tls_skip} -mount=secrets github-repo-read-credentials username=token password=${GITHUB_TOKEN_READ}
 
