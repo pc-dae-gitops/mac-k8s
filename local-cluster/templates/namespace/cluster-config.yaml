@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-config
+  namespace: ${namespace}
+data:
+  clusterType: "macbook"
+  clusterName: ${clusterName}
+  dnsSuffix: ${dnsSuffix}
+  clusterIP: ${clusterIP}
+  scmType: github
+  GitHubOrg: ${GitHubOrg}
+  GitHubRepo: ${GitHubRepo}
+  globalGitHubOrg: ${globalGitHubOrg}
+  globalGitHubRepo: ${globalGitHubRepo}
+  globalGitHubBranch: ${globalGitHubBranch}
+  userEmail: ${userEmail}
+  vault_url: ${vault_url}
+  commitUser: ${commitUser}
+

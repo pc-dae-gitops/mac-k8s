@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../root-ca.yaml
+  - gotk-components.yaml
+patchesStrategicMerge:
+  - ../helm-controller-certs-patch.yaml
+  - ../notification-controller-certs-patch.yaml
+  - ../source-controller-certs-patch.yaml
+  - ../image-reflector-controller-certs-patch.yaml

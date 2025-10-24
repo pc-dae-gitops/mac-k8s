@@ -1,0 +1,55 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: newrelic
+  namespace: newrelic
+spec:
+  chart:
+    spec:
+      chart: nri-bundle
+      version: 6.0.12
+      sourceRef:
+        kind: HelmRepository
+        name: newrelic
+        namespace: flux-system
+  releaseName: newrelic
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+    crds: CreateReplace
+  interval: 10m0s
+  timeout: 5m
+  values:
+    global:
+      licenseKey:
+        valueFrom:
+          secretKeyRef:
+            name: newrelic-license
+            key: licenseKey
+      cluster: my-cluster
+
+    # APM and APM Monitoring
+    newrelic-prometheus-exporter:
+      enabled: true
+      
+    kube-state-metrics:
+      enabled: true
+
+    # Log Forwarding with Full Enrichment
+    logging:
+      enabled: true
+      fluentbit:
+        # Full log enrichment with container details and K8s metadata
+        config:
+          filters:
+            - name: kubernetes
+              match: '*'
+              Kube_URL: https://kubernetes.default.svc:443
+              Kube_CA_File: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              Kube_Token_File: /var/run/secrets/kubernetes.io/serviceaccount/token
+              Kube_Tag: "metadata"
+

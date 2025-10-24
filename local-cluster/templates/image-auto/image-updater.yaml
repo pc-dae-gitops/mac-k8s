@@ -1,0 +1,31 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: ${appName}
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      messageTemplate: |
+        Automated image update for ${appName}\n[actions skip]
+
+        Images:
+        {{range $_, $image := .Updated.Images -}}
+        - {{ $image }}
+        {{end -}}        
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+    push:
+      branch: main
+  update:
+    path: .
+    strategy: Setters

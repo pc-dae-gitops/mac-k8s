@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: local-ca-issuer
+  name: emails
+  namespace: emails
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: emails.kubernetes.docker.internal
+    http:
+      paths:
+      - backend:
+          service:
+            name: emails
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - emails.kubernetes.docker.internal
+    secretName: emails-tls
