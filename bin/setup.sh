@@ -97,6 +97,31 @@ else
     fi
   fi
 
+  cat $(local_or_global resources/gotk-kustomization.yaml) | envsubst > $target_path/gotk/kustomization.yaml
+  git add $target_path/gotk/kustomization.yaml
+  if [[ `git status --porcelain` ]]; then
+    git commit -m "add gotk-kustomization"
+    git pull
+    git push
+  fi
+
+  if [ -f resources/root-ca.yaml ]; then
+    kubectl apply -f resources/root-ca.yaml
+    git add resources/root-ca.yaml
+    if [[ `git status --porcelain` ]]; then
+      git commit -m "add root ca"
+      git pull
+      git push
+    fi
+    # Need to add patches if root-ca is applied
+    cat $(local_or_global resources/gotk-patches.yaml) | envsubst >> $target_path/gotk/kustomization.yaml
+    git add $target_path/gotk/kustomization.yaml
+    if [[ `git status --porcelain` ]]; then
+      git commit -m "add gotk-patches"
+      git pull
+      git push
+    fi
+  fi
   kustomize build ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} | kubectl apply -f-
   source resources/github-secrets.sh
 

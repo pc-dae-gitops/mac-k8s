@@ -18,11 +18,11 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./local-cluster/core/flux/${FLUX_VERSION}
+  path: ./local-cluster/gotk
   prune: true
   sourceRef:
     kind: GitRepository
-    name: global-config
+    name: flux-system
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
