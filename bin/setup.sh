@@ -97,14 +97,7 @@ else
     fi
   fi
 
-  cat $(local_or_global resources/gotk-kustomization.yaml) | envsubst > $target_path/gotk/kustomization.yaml
-  git add $target_path/gotk/kustomization.yaml
-  if [[ `git status --porcelain` ]]; then
-    git commit -m "add gotk-kustomization"
-    git pull
-    git push
-  fi
-
+  cp ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} $target_path/gotk
   if [ -f resources/root-ca.yaml ]; then
     kubectl apply -f resources/root-ca.yaml
     git add resources/root-ca.yaml
@@ -114,15 +107,16 @@ else
       git push
     fi
     # Need to add patches if root-ca is applied
-    cat $(local_or_global resources/gotk-patches.yaml) | envsubst >> $target_path/gotk/kustomization.yaml
-    git add $target_path/gotk/kustomization.yaml
+    cp ${config_dir}/local-cluster/core/flux/*-certs-patch.yaml $target_path/gotk
+    cat ${config_dir}/resources/gotk-patches.yaml >> $target_path/gotk/kustomization.yaml
+    git add $target_path/gotk
     if [[ `git status --porcelain` ]]; then
       git commit -m "add gotk-patches"
       git pull
       git push
     fi
   fi
-  kustomize build ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} | kubectl apply -f-
+  kustomize build local-cluster/gotk | kubectl apply -f-
   source $SCRIPT_DIR/github-secrets.sh
 
   # Create a secret for flux to use to access the git repo backing the cluster, using write token - write access needed by image automation
