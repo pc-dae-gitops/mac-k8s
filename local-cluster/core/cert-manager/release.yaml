@@ -23,20 +23,10 @@ spec:
   timeout: 5m
   values:
     installCRDs: true
-    controller:
-      securityContext:
-        enabled: true
-        fsGroup: 1001
-        runAsUser: 1001
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+      runAsUser: 1001
     webhook:
       hostNetwork: false
-      securityContext:
-        enabled: true
-        fsGroup: 1001
-        runAsUser: 1001
-    cainjector:
-      securityContext:
-        enabled: true
-        fsGroup: 1001
-        runAsUser: 1001
 
