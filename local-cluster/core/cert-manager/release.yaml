@@ -23,10 +23,11 @@ spec:
   timeout: 5m
   values:
     installCRDs: true
-    securityContext:
-      enabled: true
-      fsGroup: 1001
-      runAsUser: 1001
+    controller:
+      securityContext:
+        enabled: true
+        fsGroup: 1001
+        runAsUser: 1001
     webhook:
       hostNetwork: false
       securityContext:
