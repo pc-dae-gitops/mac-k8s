@@ -1,4 +1,4 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://${GITHUB_SERVER}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}.git/local-cluster/core/flux/${FLUX_VERSION}/gotk-components.yaml?ref=${global_config_branch}
+  - https://${GITHUB_SERVER}/${GITHUB_GLOBAL_CONFIG_ORG}/${GITHUB_GLOBAL_CONFIG_REPO}.git/local-cluster/core/flux/${FLUX_VERSION}/gotk-components.yaml?ref=${global_config_branch}
