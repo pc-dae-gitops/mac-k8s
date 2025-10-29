@@ -35,7 +35,7 @@ spec:
     branch: main
   secretRef:
     name: flux-system
-  url: https://${GitHubServer}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}
+  url: https://${GITHUB_SERVER}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
