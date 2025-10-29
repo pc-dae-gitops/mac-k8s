@@ -123,7 +123,7 @@ else
     fi
   fi
   kustomize build ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} | kubectl apply -f-
-  source resources/github-secrets.sh
+  source $SCRIPT_DIR/github-secrets.sh
 
   # Create a secret for flux to use to access the git repo backing the cluster, using write token - write access needed by image automation
 
