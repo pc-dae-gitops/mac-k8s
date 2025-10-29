@@ -1,5 +1,5 @@
 patchesStrategicMerge:
-  - url(https://raw.githubusercontent.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/${global_config_branch}/local-cluster/core/flux/helm-controller-certs-patch.yaml)
-  - url(https://raw.githubusercontent.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/${global_config_branch}/local-cluster/core/flux/notification-controller-certs-patch.yaml)
-  - url(https://raw.githubusercontent.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/${global_config_branch}/local-cluster/core/flux/source-controller-certs-patch.yaml)
-  - url(https://raw.githubusercontent.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/${global_config_branch}/local-cluster/core/flux/image-reflector-controller-certs-patch.yaml)
+  - https://github.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/local-cluster/core/flux/helm-controller-certs-patch.yaml?ref=${global_config_branch}
+  - https://github.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/local-cluster/core/flux/notification-controller-certs-patch.yaml?ref=${global_config_branch}
+  - https://github.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/local-cluster/core/flux/source-controller-certs-patch.yaml?ref=${global_config_branch}
+  - https://github.com/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}/local-cluster/core/flux/image-reflector-controller-certs-patch.yaml?ref=${global_config_branch}
