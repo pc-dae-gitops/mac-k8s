@@ -9,7 +9,7 @@ spec:
     branch: ${global_config_branch}
   secretRef:
     name: flux-system
-  url: https://${GitHubServer}/${GITHUB_GLOBAL_CONFIG_ORG}/${GITHUB_GLOBAL_CONFIG_REPO}
+  url: https://${GITHUB_SERVER}/${GITHUB_GLOBAL_CONFIG_ORG}/${GITHUB_GLOBAL_CONFIG_REPO}
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
