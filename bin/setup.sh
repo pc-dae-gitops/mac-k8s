@@ -70,6 +70,7 @@ echo "Waiting for cluster to be ready"
 kubectl wait --for=condition=Available  -n kube-system deployment coredns
 
 git config pull.rebase true
+source $SCRIPT_DIR/github-secrets.sh
 
 # Install Flux if not present or force reinstall option set
 
@@ -97,7 +98,7 @@ else
     fi
   fi
 
-  cp -rf ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} $target_path/gotk
+  cp -f ${config_dir}/local-cluster/core/flux/${FLUX_VERSION}/* $target_path/gotk
   if [ -f resources/root-ca.yaml ]; then
     kubectl apply -f resources/root-ca.yaml
     git add resources/root-ca.yaml
@@ -109,15 +110,14 @@ else
     # Need to add patches if root-ca is applied
     cp -f ${config_dir}/local-cluster/core/flux/*-certs-patch.yaml $target_path/gotk
     cat ${config_dir}/resources/gotk-patches.yaml >> $target_path/gotk/kustomization.yaml
-    git add $target_path/gotk
+  fi
+  git add $target_path/gotk
     if [[ `git status --porcelain` ]]; then
-      git commit -m "add gotk-patches"
+      git commit -m "add gotk"
       git pull
       git push
     fi
-  fi
   kustomize build local-cluster/gotk | kubectl apply -f-
-  source $SCRIPT_DIR/github-secrets.sh
 
   # Create a secret for flux to use to access the git repo backing the cluster, using write token - write access needed by image automation
 
