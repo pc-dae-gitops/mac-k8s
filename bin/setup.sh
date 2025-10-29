@@ -97,7 +97,7 @@ else
     fi
   fi
 
-  cp ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} $target_path/gotk
+  cp -rf ${config_dir}/local-cluster/core/flux/${FLUX_VERSION} $target_path/gotk
   if [ -f resources/root-ca.yaml ]; then
     kubectl apply -f resources/root-ca.yaml
     git add resources/root-ca.yaml
@@ -107,7 +107,7 @@ else
       git push
     fi
     # Need to add patches if root-ca is applied
-    cp ${config_dir}/local-cluster/core/flux/*-certs-patch.yaml $target_path/gotk
+    cp -f ${config_dir}/local-cluster/core/flux/*-certs-patch.yaml $target_path/gotk
     cat ${config_dir}/resources/gotk-patches.yaml >> $target_path/gotk/kustomization.yaml
     git add $target_path/gotk
     if [[ `git status --porcelain` ]]; then
