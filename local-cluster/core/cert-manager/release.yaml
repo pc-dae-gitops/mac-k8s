@@ -23,10 +23,8 @@ spec:
   timeout: 5m
   values:
     installCRDs: true
-    podSecurityContext:
-      enabled: true
-      fsGroup: 1001
-      runAsUser: 1001
+    securityContext:
+      runAsNonRoot: false
     webhook:
       hostNetwork: false
 
