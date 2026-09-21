@@ -44,9 +44,11 @@ args "$@"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 
-vault kv put ${tls_skip} -mount=secrets github-repo-read-credentials username=token password=${GITHUB_TOKEN_READ}
-
-vault kv put ${tls_skip} -mount=secrets github-repo-write-credentials username=token password=${GITHUB_TOKEN_WRITE}
+while IFS= read -r -d '' secret_file; do
+  secret_name=${secret_file#resources/secrets/}
+  secret_name=${secret_name%.json}
+  envsubst < ${secret_file} | vault kv put ${tls_skip} -mount=secrets ${secret_name} -
+done < <(find resources/secrets -type f -name '*.json' -print0)
 
 vault kv put ${tls_skip} -mount=secrets github-repo-write-token token=${GITHUB_TOKEN_WRITE}
 

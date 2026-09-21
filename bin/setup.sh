@@ -244,7 +244,7 @@ EOF
 
 vault-secrets-config.sh $debug_str --tls-skip
 
-secrets.sh $debug_str --tls-skip --secrets $PWD/resources/secrets
+secrets.sh $debug_str --tls-skip
 
 kubectl rollout restart deployment -n external-secrets external-secrets
 
