@@ -31,7 +31,7 @@ spec:
     server:
       enabled: true
       dataStorage:
-        storageClass: ${storgeClass}
+        storageClass: ${storageClass}
       serviceAccount:
         name: vault
       standalone:
