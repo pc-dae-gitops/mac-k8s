@@ -129,7 +129,7 @@ metadata:
   namespace: flux-system
 data:
   username: $(echo -n "git" | base64 ${b64w})
-  password: $(echo -n "$GITHUB_TOKEN_WRITE" | base64 ${b64w})
+  password: $(echo -n "$GITHUB_TOKEN_READ" | base64 ${b64w})
 EOF
 
   # Create flux-system GitRepository and Kustomization
