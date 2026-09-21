@@ -248,17 +248,33 @@ secrets.sh $debug_str --tls-skip --secrets $PWD/resources/secrets
 
 kubectl rollout restart deployment -n external-secrets external-secrets
 
-yq '.addons[].name' resource-descriptions/addons.yaml | while read -r addonName
-do
-  export addonName
-  cat $(local_or_global resources/addon-ks.yaml) | envsubst > local-cluster/addons/${addonName}-ks.yaml
-done
+if [ -f resource-descriptions/addons.yaml ]; then
+  yq '.addons[].name' resource-descriptions/addons.yaml | while read -r addonName
+  do
+    export addonName
+    cat $(local_or_global resources/addon-ks.yaml) | envsubst > local-cluster/addons/${addonName}-ks.yaml
+  done
+fi
 
-yq '.namespaces[].name' resource-descriptions/namespaces.yaml | while read -r nameSpace; do
-  export nameSpace
-  cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
-done
+if [ -f resource-descriptions/namespaces.yaml ]; then
+  yq '.namespaces[].name' resource-descriptions/namespaces.yaml | while read -r nameSpace; do
+    export nameSpace
+    cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
+  done
+fi
 
+if [ -f resource-descriptions/apps.yaml ]; then
+  yq '.apps[] | .name, .namespace, .registry, .chart' resource-descriptions/apps.yaml | \
+  while read -r APP_NAME && read -r NAMESPACE_NAME && read -r REGISTRY_NAME && read -r REPO_NAME
+  do
+    echo "Found app: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
+    export nameSpace="${NAMESPACE_NAME}"
+    export appName="${APP_NAME}"
+    export registryName="${REGISTRY_NAME}"
+    export chartName="${CHART_NAME}"
+    cat $(local_or_global resources/app-ks.yaml) | envsubst > local-cluster/apps/${appName}-ks.yaml
+  done
+fi
 yq '.apps[] | .name, .namespace, .registry, .chart' resource-descriptions/apps.yaml | \
   while read -r APP_NAME && read -r NAMESPACE_NAME && read -r REGISTRY_NAME && read -r REPO_NAME
 do
