@@ -275,17 +275,6 @@ if [ -f resource-descriptions/apps.yaml ]; then
     cat $(local_or_global resources/app-ks.yaml) | envsubst > local-cluster/apps/${appName}-ks.yaml
   done
 fi
-yq '.apps[] | .name, .namespace, .registry, .chart' resource-descriptions/apps.yaml | \
-  while read -r APP_NAME && read -r NAMESPACE_NAME && read -r REGISTRY_NAME && read -r REPO_NAME
-do
-  echo "Found app: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
-  export nameSpace="${NAMESPACE_NAME}"
-  export appName="${APP_NAME}"
-  export registryName="${REGISTRY_NAME}"
-  export chartName="${CHART_NAME}"
-  cat $(local_or_global resources/app-ks.yaml) | envsubst > local-cluster/apps/${appName}-ks.yaml
-  vault-app-secrets-config.sh $debug_str --tls-skip
-done
 
 git add local-cluster
 if [[ `git status --porcelain` ]]; then
