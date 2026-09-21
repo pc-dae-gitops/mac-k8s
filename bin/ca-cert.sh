@@ -49,7 +49,12 @@ if [[ "$OSTYPE" == "linux"* ]]; then
   sudo chmod 644 /usr/local/share/ca-certificates/CA.crt
   sudo update-ca-certificates
 else
-  sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain CA.cer
+  # Current user is deliberately not an admin, so sudo cannot authenticate
+  # them directly. Switch to an admin user first; both `su` and the `sudo`
+  # it runs will prompt for that admin's password interactively.
+  read -rp "Admin username to trust the CA cert [amin]: " admin_user
+  admin_user=${admin_user:-amin}
+  su "${admin_user}" -c "sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain '$(pwd)/CA.cer'"
 fi
 
 popd >/dev/null
