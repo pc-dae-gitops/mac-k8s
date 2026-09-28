@@ -184,12 +184,26 @@ spec:
             # Let the restricted-v2 SCC assign the uid and fsGroup
             global:
               openshift: true
-            # Not rendered when global.openshift is true, see vault-ingress
+            # Fully qualified images, crc short name aliases map hashicorp/vault and hashicorp/vault-k8s
+            # to registry.connect.redhat.com which does not publish the upstream tags
+            injector:
+              image:
+                repository: docker.io/hashicorp/vault-k8s
+              agentImage:
+                repository: docker.io/hashicorp/vault
             server:
+              image:
+                repository: docker.io/hashicorp/vault
+              # Not rendered when global.openshift is true, see vault-ingress
               ingress:
                 enabled: false
             # Register with the Red Hat secrets store csi driver, see local-cluster/core/crc/csi
             csi:
+              image:
+                repository: docker.io/hashicorp/vault-csi-provider
+              agent:
+                image:
+                  repository: docker.io/hashicorp/vault
               daemonSet:
                 providersDir: /var/run/secrets-store-csi-providers
                 securityContext:
