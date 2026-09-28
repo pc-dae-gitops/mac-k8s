@@ -5,7 +5,7 @@ metadata:
   name: cluster-config
   namespace: ${namespace}
 data:
-  clusterType: "macbook"
+  clusterType: ${CLUSTER_TYPE:-docker}
   clusterName: ${CLUSTER_NAME}
   dnsSuffix: ${local_dns}
   clusterIP: ${CLUSTER_IP}

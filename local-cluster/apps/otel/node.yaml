@@ -1,0 +1,27 @@
+kind: HelmRelease
+metadata:
+  name: otel-node
+  namespace: ${nameSpace}
+spec:
+  interval: 5m
+  targetNamespace: ${nameSpace}
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: ./otel/node/otel-node
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+    - kind: ConfigMap
+      name: otel-node-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    otelNamespace: ${nameSpace}
+
+

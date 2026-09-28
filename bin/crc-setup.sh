@@ -50,6 +50,9 @@ args "$@"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 
+# Cluster type, published to flux via the cluster-config ConfigMap
+export CLUSTER_TYPE="crc"
+
 if [ -n "$debug_str" ]; then
   env | sort
 fi
@@ -302,14 +305,7 @@ secrets.sh $debug_str --tls-skip
 
 kubectl rollout restart deployment -n external-secrets external-secrets
 
-if [ -f resource-descriptions/addons.yaml ]; then
-  yq '.addons[].name' resource-descriptions/addons.yaml | while read -r addonName
-  do
-    export addonName
-    cat $(local_or_global resources/addon-ks.yaml) | envsubst > local-cluster/addons/${addonName}-ks.yaml
-  done
-fi
-
+# Create any namespaces for other applications and addons not included in addons and apps below
 if [ -f resource-descriptions/namespaces.yaml ]; then
   yq '.namespaces[].name' resource-descriptions/namespaces.yaml | while read -r nameSpace; do
     export nameSpace
@@ -317,18 +313,31 @@ if [ -f resource-descriptions/namespaces.yaml ]; then
   done
 fi
 
+# Deploy Addons and Apps
 if [ -f resource-descriptions/apps.yaml ]; then
-  yq '.apps[] | .name, .namespace, .registry, .chart' resource-descriptions/apps.yaml | \
-  while read -r APP_NAME && read -r NAMESPACE_NAME && read -r REGISTRY_NAME && read -r CHART_NAME
+  # One line per app, fields separated by | so empty fields are preserved
+  yq '.apps[] | [.name, .namespace, .registry, .chart] | join("|")' resource-descriptions/apps.yaml | \
+  while IFS='|' read -r APP_NAME NAMESPACE_NAME REGISTRY_NAME CHART_NAME
   do
     echo "Found app: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
     export nameSpace="${NAMESPACE_NAME}"
     export appName="${APP_NAME}"
     export registryName="${REGISTRY_NAME}"
     export chartName="${CHART_NAME}"
-    cat $(local_or_global resources/app-ks.yaml) | envsubst > local-cluster/apps/${appName}-ks.yaml
+    # Create namespace for app
+    cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
+    # Deploy App
+    app_ks="local-cluster/apps/${appName}-ks.yaml"
+    cat $(local_or_global resources/app-ks.yaml) | envsubst > "${app_ks}"
+    # Add the app's config key value pairs from apps.yaml to the Kustomization's postBuild substitutions
+    # Values are converted to strings because Flux substitutions must be strings
+    # stdin is redirected so yq does not consume the app list being read by the while loop
+    export APP_CONFIG="$(yq '.apps[] | select(.name == strenv(appName)) | (.config // {}) | with_entries(.value |= tostring)' \
+      resource-descriptions/apps.yaml </dev/null)"
+    yq -i '.spec.postBuild.substitute += env(APP_CONFIG) | .spec.postBuild.substitute[] style=""' "${app_ks}" </dev/null
   done
 fi
+
 
 git add local-cluster
 if [[ `git status --porcelain` ]]; then

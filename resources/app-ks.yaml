@@ -19,8 +19,11 @@ spec:
     substitute:
       nameSpace: ${nameSpace}
       appName: ${appName}
-      registryName: ${registryName}
-      chartName: ${chartName}
+      # config values from apps.yaml
     substituteFrom:
       - kind: ConfigMap
         name: cluster-config
+      - kind: ConfigMap
+        name: ${appName}-config
+        optional: true
+

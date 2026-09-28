@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: observability
+  namespace: ${nameSpace}
+spec:
+  interval: 1h
+  url: https://github.com/pc-dae/observability.git
+  ref:
+    branch: ${observabilityBranch}
