@@ -1,0 +1,7 @@
+# Instructs the operator to deploy the driver, providers register in /var/run/secrets-store-csi-providers
+apiVersion: operator.openshift.io/v1
+kind: ClusterCSIDriver
+metadata:
+  name: secrets-store.csi.k8s.io
+spec:
+  managementState: Managed

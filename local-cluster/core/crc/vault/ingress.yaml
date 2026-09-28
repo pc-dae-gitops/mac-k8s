@@ -1,0 +1,27 @@
+# The vault chart does not create an Ingress when global.openshift is true, OpenShift converts
+# this Ingress to an edge terminated Route using the certificate issued by cert-manager
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault
+  namespace: vault
+  annotations:
+    cert-manager.io/cluster-issuer: local-ca-issuer
+    route.openshift.io/termination: edge
+spec:
+  ingressClassName: openshift-default
+  tls:
+    - secretName: vault-tls
+      hosts:
+        - vault.${dnsSuffix}
+  rules:
+    - host: vault.${dnsSuffix}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault
+                port:
+                  number: 8200

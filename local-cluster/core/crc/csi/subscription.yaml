@@ -1,0 +1,12 @@
+# Secrets Store CSI Driver Operator for Red Hat OpenShift
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: secrets-store-csi-driver-operator
+  namespace: openshift-cluster-csi-drivers
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: secrets-store-csi-driver-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

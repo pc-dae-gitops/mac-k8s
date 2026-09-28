@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Utility setting local kubernetes cluster
+# Utility setting up an OpenShift Local (crc) cluster, the crc equivalent of setup.sh
 # Version: 1.0
 # Author: Paul Carlton (mailto:paul.carlton@tesco.com)
 
@@ -8,13 +8,10 @@ set -euo pipefail
 
 function usage()
 {
-    echo "usage ${0} [--debug] [--kind] [--flux-bootstrap] [--flux-reset] [--no-wait]" >&2
-    echo "This script will initialize the cluster referenced by the current context, or a kind cluster if --kind is specified" >&2
-    echo "OpenShift Local (crc) clusters are detected from the current context and set up by crc-setup.sh" >&2
+    echo "usage ${0} [--debug] [--flux-bootstrap] [--flux-reset] [--no-wait]" >&2
+    echo "This script will initialize the OpenShift Local (crc) cluster referenced by the current context" >&2
+    echo "It is called by setup.sh when the current context is a crc cluster, i.e. after 'oc login -u kubeadmin https://api.crc.testing:6443'" >&2
     echo "  --debug: emmit debugging information" >&2
-    echo "  --kind: create a kind cluster and use it, config from resources/kind.yaml in the" >&2
-    echo "          current repository if present, otherwise the default in ${GITHUB_GLOBAL_CONFIG_REPO:-mac-k8s}" >&2
-    echo "          see kind-cluster.sh --help for kind configuration options" >&2
     echo "  --flux-bootstrap: force flux bootstrap" >&2
     echo "  --flux-reset: unistall flux before reinstall" >&2
     echo "  --no-wait: do not wait for flux to be ready" >&2
@@ -26,14 +23,12 @@ function args()
   bootstrap=0
   reset=0
   debug_str=""
-  cluster_type=""
   arg_list=( "$@" )
   arg_count=${#arg_list[@]}
   arg_index=0
   while (( arg_index < arg_count )); do
     case "${arg_list[${arg_index}]}" in
           "--debug") set -x; debug_str="--debug";;
-          "--kind") cluster_type="kind";;
           "--no-wait") wait=0;;
           "--flux-bootstrap") bootstrap=1;;
           "--flux-reset") reset=1;;
@@ -59,14 +54,15 @@ if [ -n "$debug_str" ]; then
   env | sort
 fi
 
-# OpenShift Local (crc) clusters, detected from the current context's api server, are set up by crc-setup.sh
-
-if [ "$cluster_type" != "kind" ] && \
-   [ "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)" == "https://api.crc.testing:6443" ]; then
-  exec $SCRIPT_DIR/crc-setup.sh "$@"
+crc_api_server="https://api.crc.testing:6443"
+if [ "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)" != "${crc_api_server}" ]; then
+  echo "current context is not an OpenShift Local (crc) cluster, expected api server ${crc_api_server}" >&2
+  echo "start crc and login, e.g. oc login -u kubeadmin ${crc_api_server}" >&2
+  exit 1
 fi
+echo "Using OpenShift Local (crc) cluster"
 
-# Create a CA Certificate, used by cert-manager to issue ingress certificates and as the kind cluster CA
+# Create a CA Certificate, used by cert-manager to issue ingress certificates
 
 if [ -f resources/CA.cer ]; then
   echo "Certificate Authority already exists"
@@ -81,7 +77,8 @@ else
 fi
 
 function check_dns() {
-  # Warn if the ingress host names do not resolve, they need to resolve to the ingress controller, i.e. 127.0.0.1
+  # Warn if the ingress host names do not resolve, they need to resolve to the OpenShift router, i.e. 127.0.0.1
+  # crc configures resolution of *.apps-crc.testing, other domains need adding to /etc/hosts
   local host_name="vault.${local_dns}"
   local resolved=""
   if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -90,74 +87,57 @@ function check_dns() {
     resolved="$(getent hosts "${host_name}" || true)"
   fi
   if [ -z "${resolved}" ]; then
-    echo "WARNING: ${host_name} does not resolve, add ingress host names to /etc/hosts, e.g." >&2
+    echo "WARNING: ${host_name} does not resolve, set local_dns=apps-crc.testing in .envrc or add ingress host names to /etc/hosts, e.g." >&2
     echo "127.0.0.1        vault.${local_dns} grafana.${local_dns}" >&2
   fi
 }
 
-if [ "$cluster_type" == "kind" ]; then
-  $SCRIPT_DIR/kind-cluster.sh $debug_str
-  kubectl config use-context "kind-${KIND_CLUSTER_NAME:-${CLUSTER_NAME:-local}}"
-fi
-
 check_dns
 
-# Cluster type specific helm values, used by HelmRelease valuesFrom ConfigMaps
+echo "Waiting for cluster to be ready"
+oc wait --timeout=10m --for=condition=Available clusteroperator/dns clusteroperator/ingress \
+  clusteroperator/marketplace clusteroperator/operator-lifecycle-manager
 
-function cluster_values() {
-  local name="${1}"
-  local namespace="${2}"
-  local values_file="${3:-}"
-  local target="$target_path/config/${name}-values.yaml"
-  if [ -n "${values_file}" ]; then
-    kubectl create configmap ${name}-values -n ${namespace} --from-file=values.yaml="${values_file}" \
-      --dry-run=client -o yaml > "${target}"
-    kubectl apply -f "${target}"
-  else
-    rm -f "${target}"
-  fi
-}
+# Route egress traffic via the host network stack rather than directly from OVN-Kubernetes
 
-mkdir -p $target_path/config
-if [ "$cluster_type" == "kind" ]; then
-  kubectl apply -f ${config_dir}/local-cluster/core/nginx/namespace.yaml
-  cluster_values ingress-nginx ingress-nginx "$(local_or_global resources/kind-ingress-nginx-values.yaml)"
-else
-  cluster_values ingress-nginx ingress-nginx
+current="$(oc get network.operator/cluster -o jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.gatewayConfig.routingViaHost}' 2>/dev/null || true)"
+if [ "$current" != "true" ]; then
+  oc patch network.operator/cluster --type=merge -p '{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig":{"routingViaHost":true}}}}}'
+  echo "Waiting for network operator to apply routingViaHost"
+  sleep 10
+  oc wait clusteroperator/network --for=condition=Progressing=False --timeout=10m
 fi
-# metrics-server can only verify kubelet serving certificates if they are signed by the cluster CA, see kind metrics extra
-kubelet_config="$(kubectl get configmap -n kube-system kubelet-config -o jsonpath='{.data.kubelet}' 2>/dev/null || true)"
-if [[ "${kubelet_config}" == *"serverTLSBootstrap: true"* ]]; then
-  cluster_values metrics-server kube-system
-else
-  cluster_values metrics-server kube-system "$(local_or_global resources/metrics-server-kubelet-insecure-values.yaml)"
-fi
+
+# Cluster type specific helm values are not used, crc does not deploy ingress-nginx or metrics-server
+
+rm -f $target_path/config/ingress-nginx-values.yaml $target_path/config/metrics-server-values.yaml
 git add -A $target_path/config
 if [[ `git status --porcelain` ]]; then
-  git commit -m "update cluster type specific helm values"
+  git commit -m "remove cluster type specific helm values"
   git pull
   git push
 fi
 
-flux_suffix="-mac"
 b64w=""
 
 export LOCAL_DNS="$local_dns"
-cat $(local_or_global resources/flux${flux_suffix}.yaml) | envsubst > $target_path/flux/flux.yaml
+cat $(local_or_global resources/flux-crc.yaml) | envsubst > $target_path/flux/flux.yaml
 git add $target_path/flux/flux.yaml
 if [[ `git status --porcelain` ]]; then
   git commit -m "Add flux.yaml"
   git pull
   git push
-fi 
-
-echo "Waiting for cluster to be ready"
-kubectl wait --for=condition=Available  -n kube-system deployment coredns
+fi
 
 git config pull.rebase true
 source $SCRIPT_DIR/github-secrets.sh
 
-# Install Flux if not present or force reinstall option set
+# Flux controllers use a fixed fsGroup which the restricted-v2 SCC does not allow, applied before
+# flux is installed, thereafter managed by the crc-scc Kustomization
+
+kubectl apply -f ${config_dir}/local-cluster/core/crc/scc
+
+# Install Flux if not present or force reinstall option set
 
 if [[ $bootstrap -eq 0 ]]; then
   set +e
@@ -219,7 +199,6 @@ EOF
 
   # Create flux-system GitRepository and Kustomization
 
-  # git pull
   mkdir -p $target_path/flux/flux-system
   cat $(local_or_global resources/gotk-sync.yaml) | envsubst > $target_path/flux/flux-system/gotk-sync.yaml
   git add $target_path/flux/flux-system/gotk-sync.yaml
@@ -233,6 +212,7 @@ EOF
 fi
 
 # Install CA Certificate secret so Cert Manager can issue certificates using our CA
+# The cert-manager operator uses the cert-manager namespace as the cluster resource namespace
 
 kubectl apply -f ${config_dir}/local-cluster/core/cert-manager/namespace.yaml
 kubectl apply -f - <<EOF
@@ -246,16 +226,20 @@ data:
   tls.key: $(base64 ${b64w} -i resources/CA.key)
 EOF
 
-# Add CA Certificates to namespaces where it is required
+# Add CA Certificates to namespaces where it is required, there is no ingress-nginx namespace on crc
 
 namespace_list=$(local_or_global resources/local-ca-namespaces.txt)
 export CA_CERT="$(cat resources/CA.cer)"
-for nameSpace in $(cat $namespace_list); do
+for nameSpace in $(grep -vx ingress-nginx $namespace_list); do
   export nameSpace
   cat $(local_or_global resources/local-ca-ns.yaml) |envsubst | kubectl apply -f -
   kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
   kubectl apply -f /tmp/ca.yaml
 done
+
+# The vault csi provider needs the privileged SCC, allow privileged pods in the vault namespace
+kubectl label namespace vault --overwrite pod-security.kubernetes.io/enforce=privileged \
+  pod-security.kubernetes.io/audit=privileged pod-security.kubernetes.io/warn=privileged
 
 if [ "$wait" == "1" ]; then
   echo "Waiting for flux to flux-system Kustomization to be ready"
@@ -265,13 +249,8 @@ if [ "$wait" == "1" ]; then
   kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-system
 fi
 
-if [ "$wait" == "1" ]; then
-  # Wait for ingress controller to start
-  echo "Waiting for ingress controller to start"
-  kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system nginx
-  sleep 5
-fi
-export CLUSTER_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
+# The OpenShift router, used by vault to access itself via its ingress host name
+export CLUSTER_IP=$(kubectl get svc -n openshift-ingress router-internal-default -o jsonpath='{.spec.clusterIP}')
 
 export namespace=flux-system
 cat $(local_or_global resources/cluster-config.yaml) | envsubst > local-cluster/config/cluster-config.yaml
@@ -296,6 +275,10 @@ while ( true ); do
   fi
   sleep 5
 done
+
+# vault is initialized and unsealed via its route
+echo "Waiting for vault ingress"
+kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system vault-ingress
 
 sleep 5
 # Initialize vault
