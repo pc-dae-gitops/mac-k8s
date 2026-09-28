@@ -1,0 +1,25 @@
+# Cilium helm values for kind clusters
+kubeProxyReplacement: true
+# Cilium replaces kube-proxy so it connects to the API server directly, via the control-plane node container
+k8sServiceHost: ${KIND_CLUSTER_NAME}-control-plane
+k8sServicePort: 6443
+ipam:
+  mode: kubernetes
+image:
+  pullPolicy: IfNotPresent
+operator:
+  replicas: 1
+  prometheus:
+    enabled: true
+prometheus:
+  enabled: true
+hubble:
+  enabled: true
+  metrics:
+    enabled:
+    - dns
+    - drop
+    - tcp
+    - flow
+    - icmp
+    - http

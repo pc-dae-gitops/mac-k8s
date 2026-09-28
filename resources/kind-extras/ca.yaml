@@ -1,0 +1,12 @@
+# Uses the CA certificate created by ca-cert.sh as the Kubernetes cluster CA, so the API server, kubelet serving
+# certificates and certificates issued by cert-manager's local-ca-issuer are all signed by the same trusted CA.
+# kubeadm uses an existing CA certificate and key in /etc/kubernetes/pki rather than generating one.
+#   KIND_CA_CERT, KIND_CA_KEY CA certificate and key, default resources/CA.cer and resources/CA.key
+controlPlane:
+  extraMounts:
+  - hostPath: ${KIND_CA_CERT}
+    containerPath: /etc/kubernetes/pki/ca.crt
+    readOnly: true
+  - hostPath: ${KIND_CA_KEY}
+    containerPath: /etc/kubernetes/pki/ca.key
+    readOnly: true

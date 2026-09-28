@@ -8,9 +8,12 @@ set -euo pipefail
 
 function usage()
 {
-    echo "usage ${0} [--debug] [--flux-bootstrap] [--flux-reset] [--no-wait]" >&2
-    echo "This script will initialize docker kubernetes" >&2
+    echo "usage ${0} [--debug] [--kind] [--flux-bootstrap] [--flux-reset] [--no-wait]" >&2
+    echo "This script will initialize docker kubernetes, or a kind cluster if --kind is specified" >&2
     echo "  --debug: emmit debugging information" >&2
+    echo "  --kind: create a kind cluster and use it, config from resources/kind.yaml in the" >&2
+    echo "          current repository if present, otherwise the default in ${GITHUB_GLOBAL_CONFIG_REPO:-mac-k8s}" >&2
+    echo "          see kind-cluster.sh --help for kind configuration options" >&2
     echo "  --flux-bootstrap: force flux bootstrap" >&2
     echo "  --flux-reset: unistall flux before reinstall" >&2
     echo "  --no-wait: do not wait for flux to be ready" >&2
@@ -29,6 +32,7 @@ function args()
   while (( arg_index < arg_count )); do
     case "${arg_list[${arg_index}]}" in
           "--debug") set -x; debug_str="--debug";;
+          "--kind") cluster_type="kind";;
           "--no-wait") wait=0;;
           "--flux-bootstrap") bootstrap=1;;
           "--flux-reset") reset=1;;
@@ -52,6 +56,79 @@ source $SCRIPT_DIR/envs.sh
 
 if [ -n "$debug_str" ]; then
   env | sort
+fi
+
+# Create a CA Certificate, used by cert-manager to issue ingress certificates and as the kind cluster CA
+
+if [ -f resources/CA.cer ]; then
+  echo "Certificate Authority already exists"
+else
+  $SCRIPT_DIR/ca-cert.sh $debug_str
+  git add resources/CA.cer
+  if [[ `git status --porcelain` ]]; then
+    git commit -m "add CA certificate"
+    git pull
+    git push
+  fi
+fi
+
+function check_dns() {
+  # Warn if the ingress host names do not resolve, they need to resolve to the ingress controller, i.e. 127.0.0.1
+  local host_name="vault.${local_dns}"
+  local resolved=""
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    resolved="$(dscacheutil -q host -a name "${host_name}" | grep ip_address || true)"
+  else
+    resolved="$(getent hosts "${host_name}" || true)"
+  fi
+  if [ -z "${resolved}" ]; then
+    echo "WARNING: ${host_name} does not resolve, add ingress host names to /etc/hosts, e.g." >&2
+    echo "127.0.0.1        vault.${local_dns} grafana.${local_dns}" >&2
+  fi
+}
+
+if [ "$cluster_type" == "kind" ]; then
+  $SCRIPT_DIR/kind-cluster.sh $debug_str
+  kubectl config use-context "kind-${KIND_CLUSTER_NAME:-${CLUSTER_NAME:-local}}"
+fi
+
+check_dns
+
+# Cluster type specific helm values, used by HelmRelease valuesFrom ConfigMaps
+
+function cluster_values() {
+  local name="${1}"
+  local namespace="${2}"
+  local values_file="${3:-}"
+  local target="$target_path/config/${name}-values.yaml"
+  if [ -n "${values_file}" ]; then
+    kubectl create configmap ${name}-values -n ${namespace} --from-file=values.yaml="${values_file}" \
+      --dry-run=client -o yaml > "${target}"
+    kubectl apply -f "${target}"
+  else
+    rm -f "${target}"
+  fi
+}
+
+mkdir -p $target_path/config
+if [ "$cluster_type" == "kind" ]; then
+  kubectl apply -f ${config_dir}/local-cluster/core/nginx/namespace.yaml
+  cluster_values ingress-nginx ingress-nginx "$(local_or_global resources/kind-ingress-nginx-values.yaml)"
+else
+  cluster_values ingress-nginx ingress-nginx
+fi
+# metrics-server can only verify kubelet serving certificates if they are signed by the cluster CA, see kind metrics extra
+kubelet_config="$(kubectl get configmap -n kube-system kubelet-config -o jsonpath='{.data.kubelet}' 2>/dev/null || true)"
+if [[ "${kubelet_config}" == *"serverTLSBootstrap: true"* ]]; then
+  cluster_values metrics-server kube-system
+else
+  cluster_values metrics-server kube-system "$(local_or_global resources/metrics-server-kubelet-insecure-values.yaml)"
+fi
+git add -A $target_path/config
+if [[ `git status --porcelain` ]]; then
+  git commit -m "update cluster type specific helm values"
+  git pull
+  git push
 fi
 
 flux_suffix="-mac"
@@ -145,20 +222,6 @@ EOF
   fi
 
   kubectl apply -f $target_path/flux/flux-system/gotk-sync.yaml
-fi
-
-# Create a CA Certificate for the ingress controller to use
-
-if [ -f resources/CA.cer ]; then
-  echo "Certificate Authority already exists"
-else
-  ca-cert.sh $debug_str
-  git add resources/CA.cer
-  if [[ `git status --porcelain` ]]; then
-    git commit -m "add CA certificate"
-    git pull
-    git push
-  fi
 fi
 
 # Install CA Certificate secret so Cert Manager can issue certificates using our CA

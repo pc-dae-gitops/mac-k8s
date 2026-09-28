@@ -1,0 +1,5 @@
+# Calico CNI, selected by KIND_CNI=calico
+cluster:
+  networking:
+    disableDefaultCNI: true
+    podSubnet: ${KIND_POD_SUBNET}

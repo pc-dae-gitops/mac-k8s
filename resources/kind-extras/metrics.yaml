@@ -1,0 +1,27 @@
+# Exposes metrics for collection by Prometheus or OpenTelemetry collector
+# - control-plane component metrics endpoints bound to all addresses rather than localhost:
+#   kube-controller-manager :10257, kube-scheduler :10259 (https, require a token with get access to /metrics),
+#   etcd :2381 (http), kube-proxy :10249 (http)
+# - kubelet serving certificates signed by the cluster CA rather than self signed, so kubelet :10250 can be
+#   accessed with certificate verification, e.g. by OpenTelemetry kubeletstats receiver and metrics-server.
+#   metrics.sh approves the kubelet serving certificate signing requests.
+cluster:
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    controllerManager:
+      extraArgs:
+        bind-address: 0.0.0.0
+    scheduler:
+      extraArgs:
+        bind-address: 0.0.0.0
+    etcd:
+      local:
+        extraArgs:
+          listen-metrics-urls: http://0.0.0.0:2381
+  - |
+    kind: KubeProxyConfiguration
+    metricsBindAddress: 0.0.0.0:10249
+  - |
+    kind: KubeletConfiguration
+    serverTLSBootstrap: true

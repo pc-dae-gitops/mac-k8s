@@ -1,6 +1,35 @@
+# Default kind cluster configuration, used by setup.sh --kind
+# Copy to resources/kind.yaml in your cluster repository to override.
+# This file is passed through envsubst, setup.sh sets defaults for the variables used here:
+#   KIND_HTTP_PORT    host port mapped to the ingress controller http port, default 80
+#   KIND_HTTPS_PORT   host port mapped to the ingress controller https port, default 443
+#   KIND_LISTEN_ADDRESS host address the ingress ports are bound to, default 127.0.0.1
+#   KIND_DATA_DIR     host directory holding persistent volume data, default ${HOME}/.kind/${CLUSTER_NAME}
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
+  # ingress-nginx is scheduled on this node and binds host ports 80/443, see resources/kind-ingress-nginx-values.yaml
+  labels:
+    ingress-ready: "true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: ${KIND_HTTP_PORT}
+    listenAddress: ${KIND_LISTEN_ADDRESS}
+    protocol: TCP
+  - containerPort: 443
+    hostPort: ${KIND_HTTPS_PORT}
+    listenAddress: ${KIND_LISTEN_ADDRESS}
+    protocol: TCP
+  # Persistent volumes created by the hostpath and standard storage classes are stored on the host
+  extraMounts:
+  - hostPath: ${KIND_DATA_DIR}/storage
+    containerPath: /var/local-path-provisioner
 - role: worker
+  extraMounts:
+  - hostPath: ${KIND_DATA_DIR}/storage
+    containerPath: /var/local-path-provisioner
 - role: worker
+  extraMounts:
+  - hostPath: ${KIND_DATA_DIR}/storage
+    containerPath: /var/local-path-provisioner

@@ -1,0 +1,10 @@
+# Pull through cache registries for public registries, images are cached across cluster recreation
+cluster:
+  containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+allNodes:
+  extraMounts:
+  - hostPath: ${KIND_CERTS_DIR}
+    containerPath: /etc/containerd/certs.d

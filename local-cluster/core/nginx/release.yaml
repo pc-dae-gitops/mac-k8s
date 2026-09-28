@@ -23,6 +23,12 @@ spec:
     crds: CreateReplace
   interval: 10m0s
   timeout: 5m
+  # Cluster type specific values, e.g. kind clusters, created by setup.sh
+  valuesFrom:
+    - kind: ConfigMap
+      name: ingress-nginx-values
+      valuesKey: values.yaml
+      optional: true
   values:
     controller:
       service:

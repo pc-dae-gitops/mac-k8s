@@ -1,0 +1,23 @@
+# ingress-nginx helm values for kind clusters, merged with the values in local-cluster/core/nginx/release.yaml
+# Runs the controller on the control-plane node, binding host ports 80/443 which kind maps to the host.
+controller:
+  hostPort:
+    enabled: true
+  service:
+    type: NodePort
+  nodeSelector:
+    ingress-ready: "true"
+  tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Equal
+    effect: NoSchedule
+  publishService:
+    enabled: false
+  extraArgs:
+    publish-status-address: localhost
+  # Host ports prevent a new pod starting on the node until the old one has stopped
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1

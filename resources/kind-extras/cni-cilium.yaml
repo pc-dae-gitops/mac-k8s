@@ -1,0 +1,6 @@
+# Cilium CNI with kube-proxy replacement, selected by KIND_CNI=cilium
+cluster:
+  networking:
+    disableDefaultCNI: true
+    kubeProxyMode: none
+    podSubnet: ${KIND_POD_SUBNET}

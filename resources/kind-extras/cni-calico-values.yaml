@@ -1,0 +1,9 @@
+# Calico Tigera operator helm values for kind clusters
+installation:
+  calicoNetwork:
+    ipPools:
+    - cidr: ${KIND_POD_SUBNET}
+      blockSize: 26
+      encapsulation: VXLANCrossSubnet
+      natOutgoing: Enabled
+      nodeSelector: all()
