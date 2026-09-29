@@ -41,9 +41,12 @@ function add_config()
 {
     # Add the app's config key value pairs from apps.yaml to the Kustomization's postBuild substitutions
     # Values are converted to strings because Flux substitutions must be strings
+    # Values are expanded from environment variables, yq fails if a referenced variable is unset or empty
+    # Assigned before export so set -e catches a yq failure
     # stdin is redirected so yq does not consume the app list being read by the while loop
-    export APP_CONFIG="$(yq '.apps[] | select(.name == strenv(appName)) | (.config // {}) | with_entries(.value |= tostring)' \
+    APP_CONFIG="$(yq '.apps[] | select(.name == strenv(appName)) | (.config // {}) | with_entries(.value |= (tostring | envsubst(nu,ne)))' \
       resource-descriptions/apps.yaml </dev/null)"
+    export APP_CONFIG
     yq -i '.spec.postBuild.substitute += env(APP_CONFIG) | .spec.postBuild.substitute[] style=""' "${app_ks}" </dev/null
 }
 
