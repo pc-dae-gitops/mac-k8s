@@ -23,5 +23,3 @@ spec:
       optional: true
   values:
     otelNamespace: ${nameSpace}
-
-

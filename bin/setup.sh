@@ -329,6 +329,8 @@ if [ -f resource-descriptions/namespaces.yaml ]; then
 fi
 
 # Deploy Addons and Apps
+deploy-apps.sh $debug_str
+
 if [ -f resource-descriptions/apps.yaml ]; then
   yq '.apps[] | .name, .namespace' resource-descriptions/apps.yaml | \
   while read -r APP_NAME && read -r NAMESPACE_NAME 

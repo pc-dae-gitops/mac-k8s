@@ -1,7 +1,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: app-${appName}
+  name: app-config-${appName}
   namespace: ${nameSpace}
 spec:
   interval: 10m0s
@@ -14,7 +14,7 @@ spec:
   wait: true
   sourceRef:
     kind: GitRepository
-    name: mac-k8s-config
+    name: flux-system
   postBuild:
     substitute:
       nameSpace: ${nameSpace}
@@ -26,7 +26,3 @@ spec:
       - kind: ConfigMap
         name: ${appName}-config
         optional: true
-      - kind: ConfigMap
-        name: ${appName}-cluster-config
-        optional: true
-

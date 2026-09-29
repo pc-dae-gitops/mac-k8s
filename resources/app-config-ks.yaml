@@ -1,7 +1,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: app-${appName}
+  name: app-config-${appName}
   namespace: ${nameSpace}
 spec:
   interval: 10m0s
@@ -9,7 +9,7 @@ spec:
   timeout: 30s
   dependsOn:
     - name: ${dependsOn}
-  path: ./local-cluster/apps/${appName}
+  path: ./local-cluster/apps/${appName}/config
   prune: true
   wait: true
   sourceRef:
@@ -23,10 +23,3 @@ spec:
     substituteFrom:
       - kind: ConfigMap
         name: cluster-config
-      - kind: ConfigMap
-        name: ${appName}-config
-        optional: true
-      - kind: ConfigMap
-        name: ${appName}-cluster-config
-        optional: true
-
