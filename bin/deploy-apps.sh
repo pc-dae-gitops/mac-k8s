@@ -131,6 +131,17 @@ if [ -f resource-descriptions/apps.yaml ]; then
     echo "Waiting for namespace: ${nameSpace}"
     kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
 
+    export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-token
+  namespace: ${nameSpace}
+data:
+  vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
+EOF
+
     kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
     kubectl apply -f /tmp/ca.yaml
   done
