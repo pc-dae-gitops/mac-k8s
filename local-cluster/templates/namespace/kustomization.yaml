@@ -9,10 +9,4 @@ resources:
 - git-source.yaml
 - ns.yaml
 - vault.yaml
-configMapGenerator:
-- name: local-ca
-  namespace: ${nameSpace}
-  files:
-  - ../../resources/CA.cer
-  options:
-    disableNameSuffixHash: true
+

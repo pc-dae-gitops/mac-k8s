@@ -118,12 +118,20 @@ if [ -f resource-descriptions/apps.yaml ]; then
     app_ks="local-cluster/apps/${appName}-ks.yaml"
     cat $(local_or_global resources/app-ks.yaml) | envsubst > "${app_ks}"
     add_config
-  done
-fi
 
-git add local-cluster
-if [[ `git status --porcelain` ]]; then
-  git commit -m "Add namespaces and apps"
-  git pull
-  git push
+    git add local-cluster
+    if [[ `git status --porcelain` ]]; then
+      git commit -m "Add app: ${appName} in namespace: ${nameSpace}"
+      git pull
+      git push
+    fi
+
+    # Wait for Flux to create the namespace
+    # stdin is redirected so kubectl does not consume the app list being read by the while loop
+    echo "Waiting for namespace: ${nameSpace}"
+    kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
+
+    kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
+    kubectl apply -f /tmp/ca.yaml
+  done
 fi
