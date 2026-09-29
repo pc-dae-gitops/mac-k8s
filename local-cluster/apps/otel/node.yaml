@@ -5,8 +5,6 @@ metadata:
 spec:
   interval: 5m
   targetNamespace: ${nameSpace}
-  install:
-    createNamespace: true
   chart:
     spec:
       chart: ./otel/node/otel-node
