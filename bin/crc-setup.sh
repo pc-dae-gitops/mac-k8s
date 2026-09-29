@@ -133,7 +133,6 @@ if [[ `git status --porcelain` ]]; then
 fi
 
 git config pull.rebase true
-source $SCRIPT_DIR/github-secrets.sh
 
 # Flux controllers use a fixed fsGroup which the restricted-v2 SCC does not allow, applied before
 # flux is installed, thereafter managed by the crc-scc Kustomization

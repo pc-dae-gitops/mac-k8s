@@ -156,7 +156,6 @@ echo "Waiting for cluster to be ready"
 kubectl wait --for=condition=Available  -n kube-system deployment coredns
 
 git config pull.rebase true
-source $SCRIPT_DIR/github-secrets.sh
 
 # Install Flux if not present or force reinstall option set
 
