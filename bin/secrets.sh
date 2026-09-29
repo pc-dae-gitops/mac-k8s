@@ -51,7 +51,7 @@ while IFS= read -r -d '' secret_file; do
 done < <(find resources/secrets -type f -name '*.json' -print0)
 
 vault kv put ${tls_skip} -mount=secrets github-repo-write-token token=${GITHUB_TOKEN_GITOPS_WRITE}
-vault kv put ${tls_skip} -mount=secrets github-repo-read-credentials username=git password=${ GITHUB_TOKEN_GITOPS_READ}
+vault kv put ${tls_skip} -mount=secrets github-repo-read-credentials username=git password=${GITHUB_TOKEN_GITOPS_READ}
 
 RECEIVER_TOKEN=$(head -c 12 /dev/urandom | shasum | cut -d ' ' -f1)
 vault kv put ${tls_skip} -mount=secrets receiver-token token=${RECEIVER_TOKEN}
