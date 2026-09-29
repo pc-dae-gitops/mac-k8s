@@ -10,7 +10,7 @@ metadata:
 spec:
   dependsOn:
   - name: flux-components
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/crc/scc
@@ -29,7 +29,7 @@ spec:
   dependsOn:
   - name: flux-components
   - name: crc-scc
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/kyverno
@@ -87,7 +87,7 @@ metadata:
 spec:
   dependsOn:
   - name: flux-components
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 10m
   path: ./local-cluster/core/crc/cert-manager
@@ -120,7 +120,7 @@ spec:
   dependsOn:
   - name: flux-components
   - name: crc-scc
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/reloader
@@ -136,7 +136,7 @@ metadata:
   name: cert-config
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/cert-config
@@ -161,7 +161,7 @@ spec:
     - name: cert-config
     - name: config
     - name: crc-scc
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/vault
@@ -224,7 +224,7 @@ metadata:
 spec:
   dependsOn:
     - name: cert-config
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/crc/vault
@@ -246,7 +246,7 @@ spec:
   dependsOn:
   - name: flux-components
   - name: crc-scc
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/external-secrets
@@ -264,7 +264,7 @@ metadata:
 spec:
   dependsOn:
   - name: flux-components
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/core/crc/csi
@@ -280,7 +280,7 @@ metadata:
   name: secrets
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/secrets
@@ -304,7 +304,7 @@ metadata:
   name: config
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   path: ./local-cluster/config
@@ -320,7 +320,7 @@ metadata:
   name: flux
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   dependsOn:
@@ -342,7 +342,7 @@ metadata:
   name: namespaces
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   dependsOn:
@@ -364,7 +364,7 @@ metadata:
   name: apps
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   retryInterval: 30s
   timeout: 30s
   dependsOn:
