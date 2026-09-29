@@ -9,6 +9,7 @@ spec:
   timeout: 30s
   dependsOn:
     - name: flux
+    - namespace: flux-system
   path: ./local-cluster/templates/namespace
   prune: true
   wait: true
