@@ -1,0 +1,25 @@
+kind: HelmRelease
+metadata:
+  name: otel-gateway
+  namespace: ${nameSpace}
+spec:
+  interval: 5m
+  targetNamespace: ${nameSpace}
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: ./otel/gateway/otel-gateway
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+    - kind: ConfigMap
+      name: otel-gateway-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    otelNamespace: ${nameSpace}
