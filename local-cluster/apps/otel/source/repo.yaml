@@ -6,7 +6,7 @@ metadata:
 spec:
   interval: 1h
   url: https://${observabilityGitHubServer}/${observabilityGitHubOrg}/${observabilityGitHubRepo}.git
-  secret:secretRef:
+  secretRef:
     name: observability-git-token
   ref:
     branch: ${observabilityBranch}
