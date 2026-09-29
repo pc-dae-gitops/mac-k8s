@@ -9,4 +9,3 @@ resources:
 - git-source.yaml
 - ns.yaml
 - vault.yaml
-
