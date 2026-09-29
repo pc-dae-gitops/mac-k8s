@@ -92,21 +92,21 @@ if [ -f resource-descriptions/apps.yaml ]; then
     export dependsOn="namespace-${nameSpace}"
 
     if [ -d $config_dir/local-cluster/apps/${appName}/source ]; then # Deploy App source access objects
-      app_ks="local-cluster/apps/${appName}-source-ks.yaml"
+      app_ks="local-cluster/apps/ks/${appName}-source-ks.yaml"
       cat $(local_or_global resources/app-source-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-source-${appName}"
     fi
 
     if [ -d $config_dir/local-cluster/apps/${appName}/config ]; then # Deploy App Config
-      app_ks="local-cluster/apps/${appName}-config-ks.yaml"
+      app_ks="local-cluster/apps/ks/${appName}-config-ks.yaml"
       cat $(local_or_global resources/app-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-config-${appName}"
     fi
 
     if [ -d local-cluster/apps/${appName} ]; then # Deploy App Cluster Config
-      app_ks="local-cluster/apps/${appName}-cluster-config-ks.yaml"
+      app_ks="local-cluster/apps/ks/${appName}-cluster-config-ks.yaml"
       cat $(local_or_global resources/app-cluster-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-cluster-config-${appName}"
