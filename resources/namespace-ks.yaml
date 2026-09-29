@@ -2,21 +2,19 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: namespace-${nameSpace}
-  namespace: ${nameSpace}
+  namespace: flux-system
 spec:
   interval: 10m0s
   retryInterval: 30s
   timeout: 30s
   dependsOn:
     - name: flux
-      namespace: flux-system
   path: ./local-cluster/templates/namespace
   prune: true
   wait: true
   sourceRef:
     kind: GitRepository
     name: mac-k8s-config
-    namespace: flux-system
   postBuild:
     substitute:
       nameSpace: ${nameSpace}

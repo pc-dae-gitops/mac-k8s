@@ -110,13 +110,15 @@ data:
   vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
 EOF
     cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
-    export dependsOn="namespace-${nameSpace}"
+    export dependsOnName="namespace-${nameSpace}"
+    export dependsOnNs="flux-system"
 
     if [ -d $config_dir/local-cluster/apps/${appName}/source ]; then # Deploy App source access objects
       app_ks="local-cluster/apps/ks/${appName}-source-ks.yaml"
       cat $(local_or_global resources/app-source-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-source-${appName}"
+      export dependsOnNs="${nameSpace}"
     fi
 
     if [ -d $config_dir/local-cluster/apps/${appName}/config ]; then # Deploy App Config
@@ -124,6 +126,7 @@ EOF
       cat $(local_or_global resources/app-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-config-${appName}"
+      export dependsOnNs="${nameSpace}"
     fi
 
     if [ -d local-cluster/apps/config/${appName} ]; then # Deploy App Cluster Config
@@ -131,6 +134,7 @@ EOF
       cat $(local_or_global resources/app-cluster-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
       export dependsOn="app-cluster-config-${appName}"
+      export dependsOnNs="${nameSpace}"
     fi
 
     # Create App Secrets in Vault

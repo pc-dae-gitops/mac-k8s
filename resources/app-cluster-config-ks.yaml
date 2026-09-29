@@ -8,7 +8,8 @@ spec:
   retryInterval: 30s
   timeout: 30s
   dependsOn:
-    - name: ${dependsOn}
+    - name: ${dependsOnName}
+      namespace: ${dependsOnNs}
   path: ./local-cluster/apps/config/${appName}
   prune: true
   wait: true
