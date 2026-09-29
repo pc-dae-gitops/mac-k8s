@@ -79,9 +79,6 @@ else
   export CLUSTER_TYPE="k8s" # Docker or Kind, doesn't matter which, they are both not CRC/OpenShift
 fi
 
-# Deploy Addons and Apps
-deploy-apps.sh $debug_str
-
 if [ -f resource-descriptions/apps.yaml ]; then
   yq '.apps[] | .name, .namespace' resource-descriptions/apps.yaml | \
   while read -r APP_NAME && read -r NAMESPACE_NAME 
