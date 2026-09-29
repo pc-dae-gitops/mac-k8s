@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cluster-config
-  namespace: ${namespace}
+  namespace: ${nameSpace}
 data:
   clusterType: "macbook"
   clusterName: ${clusterName}
