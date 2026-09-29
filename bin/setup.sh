@@ -330,31 +330,3 @@ fi
 
 # Deploy Addons and Apps
 deploy-apps.sh $debug_str
-
-if [ -f resource-descriptions/apps.yaml ]; then
-  yq '.apps[] | .name, .namespace' resource-descriptions/apps.yaml | \
-  while read -r APP_NAME && read -r NAMESPACE_NAME 
-  do
-    echo "Deploy: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
-    export nameSpace="${NAMESPACE_NAME}"
-    export appName="${APP_NAME}"
-    # Create namespace for app
-    cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
-    # Deploy App
-    app_ks="local-cluster/apps/${appName}-ks.yaml"
-    cat $(local_or_global resources/app-ks.yaml) | envsubst > "${app_ks}"
-    # Add the app's config key value pairs from apps.yaml to the Kustomization's postBuild substitutions
-    # Values are converted to strings because Flux substitutions must be strings
-    # stdin is redirected so yq does not consume the app list being read by the while loop
-    export APP_CONFIG="$(yq '.apps[] | select(.name == strenv(appName)) | (.config // {}) | with_entries(.value |= tostring)' \
-      resource-descriptions/apps.yaml </dev/null)"
-    yq -i '.spec.postBuild.substitute += env(APP_CONFIG) | .spec.postBuild.substitute[] style=""' "${app_ks}" </dev/null
-  done
-fi
-
-git add local-cluster
-if [[ `git status --porcelain` ]]; then
-  git commit -m "Add namespaces and apps"
-  git pull
-  git push
-fi

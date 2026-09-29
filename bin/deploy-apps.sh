@@ -4,7 +4,7 @@
 # Version: 1.0
 # Author: Paul Carlton (mailto:paul.carlton@tesco.com)
 
-set -euo pipefail
+set -xeuo pipefail
 
 function usage()
 {
