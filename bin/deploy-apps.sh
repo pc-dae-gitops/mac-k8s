@@ -105,7 +105,7 @@ if [ -f resource-descriptions/apps.yaml ]; then
       export dependsOn="app-config-${appName}"
     fi
 
-    if [ -d local-cluster/apps/${appName} ]; then # Deploy App Cluster Config
+    if [ -d local-cluster/apps/config/${appName} ]; then # Deploy App Cluster Config
       app_ks="local-cluster/apps/ks/${appName}-cluster-config-ks.yaml"
       cat $(local_or_global resources/app-cluster-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
@@ -116,7 +116,7 @@ if [ -f resource-descriptions/apps.yaml ]; then
     add_secrets
 
     # Deploy App
-    app_ks="local-cluster/apps/${appName}-ks.yaml"
+    app_ks="local-cluster/apps/ks/${appName}-ks.yaml"
     cat $(local_or_global resources/app-ks.yaml) | envsubst > "${app_ks}"
     add_config
 
