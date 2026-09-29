@@ -15,16 +15,10 @@ spec:
         namespace: ${nameSpace}
   valuesFrom:
     - kind: ConfigMap
-      name: cluster-config
-      valuesKey: clusterType
-      targetPath: clusterType
-    - kind: ConfigMap
-      name: cluster-config
-      valuesKey: clusterName
-      targetPath: clusterName
-    - kind: ConfigMap
       name: otel-node-values
       valuesKey: values.yaml
       optional: true
   values:
     otelNamespace: ${nameSpace}
+    clusterType: ${clusterType}
+    clusterName: ${clusterName}
