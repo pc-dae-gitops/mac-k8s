@@ -14,7 +14,7 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
-  name: global-config
+  name: mac-k8s-config
   namespace: ${nameSpace}
 spec:
   interval: 10m0s
