@@ -117,7 +117,7 @@ EOF
       app_ks="local-cluster/apps/ks/${appName}-source-ks.yaml"
       cat $(local_or_global resources/app-source-ks.yaml) | envsubst > "${app_ks}"
       add_config
-      export dependsOn="app-source-${appName}"
+      export dependsOnName="app-source-${appName}"
       export dependsOnNs="${nameSpace}"
     fi
 
@@ -125,7 +125,7 @@ EOF
       app_ks="local-cluster/apps/ks/${appName}-config-ks.yaml"
       cat $(local_or_global resources/app-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
-      export dependsOn="app-config-${appName}"
+      export dependsOnName="app-config-${appName}"
       export dependsOnNs="${nameSpace}"
     fi
 
@@ -133,7 +133,7 @@ EOF
       app_ks="local-cluster/apps/ks/${appName}-cluster-config-ks.yaml"
       cat $(local_or_global resources/app-cluster-config-ks.yaml) | envsubst > "${app_ks}"
       add_config
-      export dependsOn="app-cluster-config-${appName}"
+      export dependsOnName="app-cluster-config-${appName}"
       export dependsOnNs="${nameSpace}"
     fi
 

@@ -14,6 +14,10 @@ Deployment requires an `apps.yaml` entry containing
 apps:
   - name: otel
     namespace: otel
+    config:
+      observabilityGitHubServer: ${GITHUB_SERVER}
+      observabilityGitHubOrg: pc-dae
+      observabilityGitHubRepo: observability
     secrets:
       newrelic-key:
         licenseKey: ${NEWRELIC_LICENSE_KEY}
