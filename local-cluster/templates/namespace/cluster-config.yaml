@@ -5,7 +5,7 @@ metadata:
   name: cluster-config
   namespace: ${nameSpace}
 data:
-  clusterType: "macbook"
+  clusterType: ${clusterType}
   clusterName: ${clusterName}
   dnsSuffix: ${dnsSuffix}
   clusterIP: ${clusterIP}
