@@ -391,7 +391,7 @@ spec:
   timeout: 30s
   dependsOn:
     - name: namespaces
-  path: ./local-cluster/apps
+  path: ./local-cluster/apps/ks
   prune: true
   wait: true
   sourceRef:

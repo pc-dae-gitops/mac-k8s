@@ -320,13 +320,4 @@ secrets.sh $debug_str --tls-skip
 
 kubectl rollout restart deployment -n external-secrets external-secrets
 
-# Create any namespaces for other applications and addons not included in addons and apps below
-if [ -f resource-descriptions/namespaces.yaml ]; then
-  yq '.namespaces[].name' resource-descriptions/namespaces.yaml | while read -r nameSpace; do
-    export nameSpace
-    cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
-  done
-fi
-
-# Deploy Addons and Apps
 deploy-apps.sh $debug_str
