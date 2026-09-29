@@ -1,22 +1,5 @@
 ---
 apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: vault-token
-  namespace: ${nameSpace}
-spec:
-  refreshInterval: 5m
-  secretStoreRef:
-    kind: SecretStore
-    name: vault
-  target:
-    name: vault-token
-    creationPolicy: Owner
-  dataFrom:
-    - extract:
-        key: ${nameSpace}-vault-token
----
-apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
 metadata:
   name: vault
