@@ -10,6 +10,7 @@ data:
   dnsSuffix: ${dnsSuffix}
   clusterIP: ${clusterIP}
   scmType: github
+  registry: ${registry}
   GitHubServer: ${GitHubServer}
   GitHubOrg: ${GitHubOrg}
   GitHubRepo: ${GitHubRepo}
@@ -19,4 +20,3 @@ data:
   userEmail: ${userEmail}
   vault_url: ${vault_url}
   commitUser: ${commitUser}
-
