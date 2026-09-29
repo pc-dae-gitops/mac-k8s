@@ -88,6 +88,27 @@ if [ -f resource-descriptions/apps.yaml ]; then
     export nameSpace="${NAMESPACE_NAME}"
     export appName="${APP_NAME}"
     # Create namespace for app
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${nameSpace}
+EOF
+    # Wait for Flux to create the namespace
+    # stdin is redirected so kubectl does not consume the app list being read by the while loop
+    echo "Waiting for namespace: ${nameSpace}"
+    kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
+
+    export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
+    kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-token
+  namespace: ${nameSpace}
+data:
+  vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
+EOF
     cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
     export dependsOn="namespace-${nameSpace}"
 
@@ -126,22 +147,6 @@ if [ -f resource-descriptions/apps.yaml ]; then
       git pull
       git push
     fi
-
-    # Wait for Flux to create the namespace
-    # stdin is redirected so kubectl does not consume the app list being read by the while loop
-    echo "Waiting for namespace: ${nameSpace}"
-    kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
-
-    export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
-  kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: vault-token
-  namespace: ${nameSpace}
-data:
-  vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
-EOF
 
     kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
     kubectl apply -f /tmp/ca.yaml
