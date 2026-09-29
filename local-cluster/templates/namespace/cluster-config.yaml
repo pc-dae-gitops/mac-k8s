@@ -10,6 +10,7 @@ data:
   dnsSuffix: ${dnsSuffix}
   clusterIP: ${clusterIP}
   scmType: github
+  GitHubServer: ${GitHubServer}
   GitHubOrg: ${GitHubOrg}
   GitHubRepo: ${GitHubRepo}
   globalGitHubOrg: ${globalGitHubOrg}
