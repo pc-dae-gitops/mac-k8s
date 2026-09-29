@@ -7,5 +7,4 @@ resources:
 - alerts.yaml
 - cluster-config.yaml
 - git-source.yaml
-- ns.yaml
 - vault.yaml
