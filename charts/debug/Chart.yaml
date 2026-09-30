@@ -1,0 +1,6 @@
+apiVersion: v2
+name: debug-pod
+description: Debug pod deployment for Kubernetes troubleshooting
+type: application
+version: 0.1.0
+appVersion: "latest"

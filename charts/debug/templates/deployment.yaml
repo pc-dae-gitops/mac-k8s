@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "debug-pod.name" . }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app: {{ include "debug-pod.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "debug-pod.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "debug-pod.name" . }}
+    spec:
+      {{- if .Values.node }}
+      hostPID: true
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccount | quote }}
+      {{- if .Values.node }}
+      nodeName: {{ .Values.node | quote }}
+      {{- end }}
+      containers:
+        - name: {{ include "debug-pod.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c", "sleep infinity"]
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+              {{- if .Values.resources.limits.ephemeralStorage }}
+              ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+              {{- end }}
+          {{- include "debug-pod.securityContext" . | nindent 10 }}
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/pki/tls/certs/ca-bundle.crt
+          volumeMounts:
+            - name: custom-ca
+              mountPath: /etc/pki/tls/certs/ca-bundle.crt
+              subPath: ca-bundle.crt
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.node }}
+            - name: host-root
+              mountPath: /host
+            {{- end }}
+      volumes:
+        {{- if .Values.node }}
+        - name: host-root
+          hostPath:
+            path: /
+        {{- end }}
+        - name: custom-ca
+          configMap:
+            name: custom-ca
+        - name: tmp
+          emptyDir:
+            {{- if .Values.tmpSizeLimit }}
+            sizeLimit: {{ .Values.tmpSizeLimit | quote }}
+            {{- else }}
+            {}
+            {{- end }}

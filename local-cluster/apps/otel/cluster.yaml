@@ -6,8 +6,19 @@ metadata:
 spec:
   interval: 5m
   targetNamespace: ${nameSpace}
+# Configuration for fresh installations
   install:
-    createNamespace: true
+    remediation:
+      retries: -1          # -1 means unlimited retries (or set to desired integer)
+      retryInterval: 1m    # Time to wait between retry attempts
+
+  # Configuration for upgrades
+  upgrade:
+    remediation:
+      retries: -1          # -1 means unlimited retries
+      retryInterval: 1m    # Time to wait between retry attempts
+      remediateLastFailure: true # Forces remediation on the latest failed state
+
   chart:
     spec:
       chart: ./otel/cluster/otel-cluster
