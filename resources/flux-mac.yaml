@@ -112,6 +112,24 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
+  name: node-exporter
+  namespace: flux-system
+spec:
+  dependsOn:
+  - name: kube-state-metrics # Provides the prometheus-community HelmRepository
+  interval: 5m0s
+  retryInterval: 30s
+  timeout: 30s
+  path: ./local-cluster/core/node-exporter
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: mac-k8s-config
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
   name: cert-config
   namespace: flux-system
 spec:
