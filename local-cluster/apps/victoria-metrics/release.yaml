@@ -1,0 +1,31 @@
+# VictoriaMetrics metrics store for the otel gateway, see victoria-metrics/README.md in the observability repository
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: victoria-metrics
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: 10m
+  targetNamespace: ${nameSpace}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./victoria-metrics/victoria-metrics
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: victoria-metrics-values
+      valuesKey: values.yaml
+      optional: true
