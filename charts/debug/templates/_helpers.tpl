@@ -5,12 +5,11 @@ debug-pod
 {{- define "debug-pod.securityContext" -}}
 {{- if eq .Values.secContext "ROOT" }}
 securityContext:
+  privileged: true
   allowPrivilegeEscalation: true
   readOnlyRootFilesystem: false
   runAsUser: 0
   runAsGroup: 0
-  seccompProfile:
-    type: RuntimeDefault
 {{- else }}
 securityContext:
   allowPrivilegeEscalation: false

@@ -38,14 +38,7 @@ spec:
               ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
               {{- end }}
           {{- include "debug-pod.securityContext" . | nindent 10 }}
-          env:
-            - name: SSL_CERT_FILE
-              value: /etc/pki/tls/certs/ca-bundle.crt
           volumeMounts:
-            - name: custom-ca
-              mountPath: /etc/pki/tls/certs/ca-bundle.crt
-              subPath: ca-bundle.crt
-              readOnly: true
             - name: tmp
               mountPath: /tmp
             {{- if .Values.node }}
@@ -58,9 +51,6 @@ spec:
           hostPath:
             path: /
         {{- end }}
-        - name: custom-ca
-          configMap:
-            name: custom-ca
         - name: tmp
           emptyDir:
             {{- if .Values.tmpSizeLimit }}
