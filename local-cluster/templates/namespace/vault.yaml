@@ -21,7 +21,7 @@ metadata:
   name: github-repo-read-credentials
   namespace: ${nameSpace}
 spec:
-  refreshInterval: 1m
+  refreshinterval:5m
   secretStoreRef:
     kind: SecretStore
     name: vault
@@ -38,7 +38,7 @@ metadata:
   name: git-write-token
   namespace: ${nameSpace}
 spec:
-  refreshInterval: 1m
+  refreshinterval:5m
   secretStoreRef:
     kind: SecretStore
     name: vault
@@ -55,7 +55,7 @@ metadata:
   name: receiver-token
   namespace: ${nameSpace}
 spec:
-  refreshInterval: 1m
+  refreshinterval:5m
   secretStoreRef:
     kind: SecretStore
     name: vault

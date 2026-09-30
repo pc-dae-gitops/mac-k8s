@@ -4,7 +4,7 @@ metadata:
   name: otel-node
   namespace: ${nameSpace}
 spec:
-  interval: 1m
+  interval:5m
   targetNamespace: ${nameSpace}
   install:
     remediation:
