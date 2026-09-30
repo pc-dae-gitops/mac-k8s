@@ -4,7 +4,7 @@ metadata:
   name: otel-node
   namespace: ${nameSpace}
 spec:
-  interval: 5m
+  interval: 1m
   targetNamespace: ${nameSpace}# Configuration for fresh installations
   install:
     remediation:
@@ -15,7 +15,6 @@ spec:
   upgrade:
     remediation:
       retries: -1          # -1 means unlimited retries
-      retryInterval: 1m    # Time to wait between retry attempts
       remediateLastFailure: true # Forces remediation on the latest failed state
 
   chart:
