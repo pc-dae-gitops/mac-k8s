@@ -5,17 +5,14 @@ metadata:
   namespace: ${nameSpace}
 spec:
   interval: 1m
-  targetNamespace: ${nameSpace}# Configuration for fresh installations
+  targetNamespace: ${nameSpace}
   install:
     remediation:
-      retries: -1          # -1 means unlimited retries (or set to desired integer)
-
-  # Configuration for upgrades
+      retries: -1
   upgrade:
     remediation:
-      retries: -1          # -1 means unlimited retries
-      remediateLastFailure: true # Forces remediation on the latest failed state
-
+      retries: -1
+      remediateLastFailure: true
   chart:
     spec:
       chart: ./otel/gateway/otel-gateway

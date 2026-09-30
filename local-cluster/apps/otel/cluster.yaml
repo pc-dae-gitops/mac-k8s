@@ -6,12 +6,9 @@ metadata:
 spec:
   interval: 1m
   targetNamespace: ${nameSpace}
-# Configuration for fresh installations
   install:
     remediation:
       retries: -1          # -1 means unlimited retries (or set to desired integer)
-
-  # Configuration for upgrades
   upgrade:
     remediation:
       retries: -1          # -1 means unlimited retries
