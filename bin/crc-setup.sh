@@ -312,5 +312,14 @@ if [ -f resource-descriptions/namespaces.yaml ]; then
   done
 fi
 
+cat $(local_or_global resources/crc/logging.yaml) |envsubst | kubectl apply -f -
+
+# Wait for the cluster logging operator to be installed
+kubectl wait --timeout=2m --for=jsonpath='{.status.phase}'=Active namespace/openshift-logging
+kubectl wait --timeout=5m --for=jsonpath='{.status.state}'=AtLatestKnown subscription.operators.coreos.com/cluster-logging -n openshift-logging
+csv="$(kubectl get subscription.operators.coreos.com/cluster-logging -n openshift-logging -o jsonpath='{.status.installedCSV}')"
+echo "Waiting for cluster logging operator $csv"
+kubectl wait --timeout=10m --for=jsonpath='{.status.phase}'=Succeeded clusterserviceversion/$csv -n openshift-logging
+
 # Deploy Addons and Apps
 deploy-apps.sh $debug_str
