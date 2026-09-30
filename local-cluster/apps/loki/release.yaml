@@ -1,0 +1,29 @@
+# Loki log store for the otel gateway, see loki/README.md in the observability repository
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: 10m
+  targetNamespace: ${nameSpace}
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./loki/loki
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: loki-values
+      valuesKey: values.yaml
+      optional: true

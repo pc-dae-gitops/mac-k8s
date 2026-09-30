@@ -29,3 +29,15 @@ spec:
     otelNamespace: ${nameSpace}
     clusterType: ${clusterType}
     clusterName: ${clusterName}
+    targets: # Set otelNewRelic, otelSplunk, otelVictoriaMetrics and otelLoki in the otel app config in resource-descriptions/apps.yaml
+      newrelic:
+        enabled: ${otelNewRelic:=true}
+      splunk:
+        enabled: ${otelSplunk:=true}
+      victoriametrics:
+        enabled: ${otelVictoriaMetrics:=false}
+      loki:
+        enabled: ${otelLoki:=false}
+    platforms:
+      kubernetes: # Needs the kind-extras metrics extra, set otelControlPlaneComponents in the otel app config
+        controlPlaneComponents: ${otelControlPlaneComponents:=false}

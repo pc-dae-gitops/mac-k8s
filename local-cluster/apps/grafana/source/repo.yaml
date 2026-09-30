@@ -1,0 +1,12 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: observability
+  namespace: ${nameSpace}
+spec:
+  interval: 5m
+  url: https://${observabilityGitHubServer}/${observabilityGitHubOrg}/${observabilityGitHubRepo}.git
+  secretRef:
+    name: observability-git-token
+  ref:
+    branch: ${observabilityBranch}
