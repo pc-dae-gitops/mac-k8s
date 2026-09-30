@@ -15,7 +15,7 @@ spec:
   upgrade:
     remediation:
       retries: -1          # -1 means unlimited retries
-      retryInterval: 1m    # Time to wait between retry attempts
+      remediateLastFailure: true # Forces remediation on the latest failed state
 
   chart:
     spec:
