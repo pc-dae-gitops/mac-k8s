@@ -8,12 +8,11 @@ spec:
   targetNamespace: ${nameSpace}
   install:
     remediation:
-      retries: -1          # -1 means unlimited retries (or set to desired integer)
+      retries: -1
   upgrade:
     remediation:
-      retries: -1          # -1 means unlimited retries
-      remediateLastFailure: true # Forces remediation on the latest failed state
-
+      retries: -1
+      remediateLastFailure: true
   chart:
     spec:
       chart: ./otel/cluster/otel-cluster
