@@ -19,7 +19,7 @@ spec:
     remediation:
       retries: -1
     crds: CreateReplace
-  interval:5m0s
+  interval: 5m0s
   timeout: 5m
   # Cluster type specific values created by setup.sh, i.e. --kubelet-insecure-tls when kubelet serving
   # certificates are self signed rather than signed by the cluster CA
