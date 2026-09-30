@@ -1,9 +1,8 @@
-**Confidentiality:** Internal
-**Document Status:** DRAFT - UNREVIEWED
-
 # Global Configuration
 
-This directory contains the mac-k8s configuration for Kubernetes clusters.
+This directory contains the mac-k8s configuration for Kubernetes clusters and Kubernetes utilties.
+
+
 
 ## OpenShift Local (crc)
 

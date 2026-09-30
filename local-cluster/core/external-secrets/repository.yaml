@@ -4,5 +4,5 @@ metadata:
   name: external-secrets
   namespace: external-secrets
 spec:
-  interval: 1h0s
+  interval: 1m0s
   url: https://charts.external-secrets.io

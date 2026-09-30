@@ -21,7 +21,7 @@ spec:
     remediation:
       retries: -1
     crds: CreateReplace
-  interval: 10m0s
+  interval: 1m0s
   timeout: 5m
   # Cluster type specific values, e.g. kind clusters, created by setup.sh
   valuesFrom:
