@@ -4,7 +4,7 @@ metadata:
   name: root-ca-repository
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   # Replace with your repository URL
   url: https://github.com/your-org/your-repo.git
   ref:
@@ -21,7 +21,7 @@ metadata:
   name: root-ca-kustomization
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   prune: true
   wait: true
   sourceRef:

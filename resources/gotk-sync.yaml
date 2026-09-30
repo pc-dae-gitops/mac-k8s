@@ -4,7 +4,7 @@ metadata:
   name: mac-k8s-config
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   ref:
     branch: ${global_config_branch}
   secretRef:
@@ -17,7 +17,7 @@ metadata:
   name: flux-components
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   path: ./local-cluster/gotk
   prune: true
   sourceRef:
@@ -30,7 +30,7 @@ metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   ref:
     branch: main
   secretRef:
@@ -43,7 +43,7 @@ metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  interval:5m0s
+  interval: 5m0s
   path: ./${target_path}/flux
   prune: true
   sourceRef:

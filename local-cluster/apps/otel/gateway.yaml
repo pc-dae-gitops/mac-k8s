@@ -4,7 +4,7 @@ metadata:
   name: otel-gateway
   namespace: ${nameSpace}
 spec:
-  interval:5m
+  interval: 5m
   targetNamespace: ${nameSpace}
   install:
     remediation:
