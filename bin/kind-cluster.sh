@@ -24,7 +24,8 @@ function usage()
     echo "  KIND_LISTEN_ADDRESS: host address for ingress ports, default 127.0.0.1" >&2
     echo "  KIND_DATA_DIR: host directory for persistent volumes and audit logs, default \$HOME/.kind/<cluster name>" >&2
     echo "  KIND_EXTRAS: space separated list of extras in resources/kind-extras, default \"ca metrics registry mirror\"" >&2
-    echo "               available extras: ca, audit, metrics, registry, mirror" >&2
+    echo "               available extras: ca, audit, metrics, registry, mirror, splunk" >&2
+    echo "If the cluster already exists, only the extras' ensure hooks are run, e.g. to push images to the local registry" >&2
 }
 
 function args()
@@ -71,12 +72,6 @@ if [ "$delete" == "1" ]; then
   exit
 fi
 
-if kind get clusters 2>/dev/null | grep -qx "${KIND_CLUSTER_NAME}"; then
-  echo "kind cluster ${KIND_CLUSTER_NAME} already exists, using it"
-  kind export kubeconfig --name "${KIND_CLUSTER_NAME}"
-  exit
-fi
-
 # Functions available to extras scripts
 
 # Start a registry container if not already running, remaining arguments are passed to docker run
@@ -101,7 +96,10 @@ function connect_to_kind_network() {
   fi
 }
 
-# Run a hook function, pre_create or post_create, defined in resources/kind-extras/<extra>.sh
+# Run a hook function defined in resources/kind-extras/<extra>.sh:
+#   pre_create   before the cluster is created
+#   post_create  after the cluster is created
+#   ensure       after post_create, and when the cluster already exists, so it must be safe to run more than once
 function run_hook() {
   local hook="${1}"
   local extra="${2}"
@@ -109,13 +107,13 @@ function run_hook() {
   if [ ! -f "${script}" ]; then
     return
   fi
-  unset -f pre_create post_create
+  unset -f pre_create post_create ensure
   source "${script}"
   if declare -F "${hook}" >/dev/null; then
     echo "Running ${extra} ${hook}"
     "${hook}"
   fi
-  unset -f pre_create post_create
+  unset -f pre_create post_create ensure
 }
 
 # Merge resources/kind-extras/<extra>.yaml, its cluster, controlPlane and allNodes sections are merged
@@ -148,6 +146,15 @@ for extra in ${extras}; do
     exit 1
   fi
 done
+
+if kind get clusters 2>/dev/null | grep -qx "${KIND_CLUSTER_NAME}"; then
+  echo "kind cluster ${KIND_CLUSTER_NAME} already exists, using it"
+  kind export kubeconfig --name "${KIND_CLUSTER_NAME}"
+  for extra in ${extras}; do
+    run_hook ensure "${extra}"
+  done
+  exit
+fi
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/kind-cluster.XXXXXX")"
 trap 'rm -rf "${work_dir}"' EXIT
@@ -198,3 +205,7 @@ echo "Waiting for nodes to be ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=5m
 
 kubectl apply -f "$(local_or_global resources/kind-storageclass.yaml)"
+
+for extra in ${extras}; do
+  run_hook ensure "${extra}"
+done

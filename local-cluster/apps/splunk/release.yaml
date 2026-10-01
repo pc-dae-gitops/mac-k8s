@@ -32,7 +32,7 @@ spec:
     clusterName: ${clusterName}
     clusterType: ${splunkClusterType:=kind} # kind or eks, the chart doesn't take the cluster-config clusterType
     acceptLicense: true
-    image: # On Apple Silicon set splunkImageRepository to local/splunk and splunkImagePullPolicy to Never, see the README
+    image: # On Apple Silicon set splunkImageRepository to localhost:5001/splunk, pushed by the splunk kind extra
       repository: ${splunkImageRepository:=splunk/splunk}
       pullPolicy: ${splunkImagePullPolicy:=IfNotPresent}
     ingress:
