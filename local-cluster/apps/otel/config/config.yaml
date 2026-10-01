@@ -9,8 +9,3 @@ data:
   observabilityGitHubOrg: ${observabilityGitHubOrg:=pc-dae}
   observabilityGitHubRepo: ${observabilityGitHubRepo:=observability}
   observabilityGitHubServer: ${observabilityGitHubServer:=${GitHubServer}}
-  otelNewRelic: "${otelNewRelic:=true}"
-  otelSplunk: "${otelSplunk:=true}"
-  otelVictoriaMetrics: "${otelVictoriaMetrics:=false}"
-  otelLoki: "${otelLoki:=false}"
-  otelControlPlaneComponents: "${otelControlPlaneComponents:=false}"
