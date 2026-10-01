@@ -1,0 +1,17 @@
+# Wildcard certificate issued by local-ca-issuer, used by ingress-nginx as its default certificate so hosts without
+# an ingress, or ingresses without tls, are served a certificate signed by the trusted local CA. Applied after
+# cert-config, which creates the issuer.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: default-ssl-certificate
+  namespace: ingress-nginx
+spec:
+  secretName: default-ssl-certificate
+  issuerRef:
+    kind: ClusterIssuer
+    name: local-ca-issuer
+  commonName: "*.${dnsSuffix}"
+  dnsNames:
+    - "*.${dnsSuffix}"
+    - ${dnsSuffix}

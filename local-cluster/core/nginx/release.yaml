@@ -40,3 +40,33 @@ spec:
       ingressClassResource:
         default: "true"
       watchIngressWithoutClass: "true"
+      extraArgs:
+        # Wildcard certificate signed by the local CA, created by local-cluster/core/nginx-config.
+        # The controller uses its self-signed fake certificate until the secret exists.
+        default-ssl-certificate: ingress-nginx/default-ssl-certificate
+    # Returns a "Service not found" page for hosts and paths no ingress matches, configured in default-backend.yaml
+    defaultBackend:
+      enabled: true
+      image:
+        registry: docker.io
+        image: nginxinc/nginx-unprivileged
+        tag: 1.29-alpine
+      port: 8080
+      extraVolumes:
+        - name: config
+          configMap:
+            name: default-backend
+        - name: tmp
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          memory: 64Mi

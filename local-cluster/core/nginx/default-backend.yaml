@@ -1,0 +1,23 @@
+# nginx configuration for the ingress-nginx default backend, which serves requests for hosts and paths no ingress matches
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: default-backend
+  namespace: ingress-nginx
+data:
+  default.conf: |
+    server {
+      listen 8080 default_server;
+      server_name _;
+
+      location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+      }
+
+      location / {
+        default_type text/html;
+        return 404 "<!doctype html><html><head><title>Service not found</title></head><body><h1>Service not found</h1><p>No ingress is configured for $host$request_uri</p></body></html>\n";
+      }
+    }

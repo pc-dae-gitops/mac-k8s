@@ -152,6 +152,27 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
+  name: nginx-config
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  retryInterval: 30s
+  timeout: 30s
+  path: ./local-cluster/core/nginx-config
+  prune: true
+  wait: true
+  dependsOn:
+    - name: cert-config
+  sourceRef:
+    kind: GitRepository
+    name: mac-k8s-config
+  postBuild:
+    substitute:
+      dnsSuffix: ${LOCAL_DNS}
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
   name: vault
   namespace: flux-system
 spec:
