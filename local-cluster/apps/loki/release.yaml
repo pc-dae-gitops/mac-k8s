@@ -27,3 +27,16 @@ spec:
       name: loki-values
       valuesKey: values.yaml
       optional: true
+  values:
+    loki:
+      ingress:
+        enabled: true # Exposes the Loki push and query API paths, there is no UI at /
+        ingressClassName: ${lokiIngressClassName:=nginx} # Set lokiIngressClassName to openshift-default on crc
+        annotations:
+          cert-manager.io/cluster-issuer: local-ca-issuer
+        hosts:
+          - loki.${dnsSuffix}
+        tls:
+          - secretName: loki-tls
+            hosts:
+              - loki.${dnsSuffix}

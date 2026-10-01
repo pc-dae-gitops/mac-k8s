@@ -29,3 +29,17 @@ spec:
       name: victoria-metrics-values
       valuesKey: values.yaml
       optional: true
+  values:
+    victoria-metrics-k8s-stack:
+      vmsingle:
+        ingress:
+          enabled: true
+          ingressClassName: ${victoriaMetricsIngressClassName:=nginx} # Set victoriaMetricsIngressClassName to openshift-default on crc
+          annotations:
+            cert-manager.io/cluster-issuer: local-ca-issuer
+          hosts:
+            - victoria-metrics.${dnsSuffix}
+          tls:
+            - secretName: victoria-metrics-tls
+              hosts:
+                - victoria-metrics.${dnsSuffix}

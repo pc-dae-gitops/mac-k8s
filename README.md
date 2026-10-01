@@ -14,8 +14,8 @@ The `local-cluster/apps` directory has app templates for the charts in the [obse
 | App | Namespace | Chart |
 | --- | --- | --- |
 | `otel` | `otel` | `otel/node/otel-node`, `otel/cluster/otel-cluster` and `otel/gateway/otel-gateway` |
-| `victoria-metrics` | `victoria-metrics` | `victoria-metrics/victoria-metrics` |
-| `loki` | `loki` | `loki/loki` |
+| `victoria-metrics` | `victoria-metrics` | `victoria-metrics/victoria-metrics`, with an ingress at `victoria-metrics.<dnsSuffix>` |
+| `loki` | `loki` | `loki/loki`, with an ingress at `loki.<dnsSuffix>` for the push and query API paths |
 | `grafana` | `grafana` | `grafana/grafana`, with an ingress at `grafana.<dnsSuffix>` |
 
 Add them to `resource-descriptions/apps.yaml` in the cluster repository, then run `deploy-apps.sh`. Each app needs its own copy of the observability repository token template at `resources/secrets/apps/<app>/observability-git-token.json`; `secrets.sh` loads it into Vault.

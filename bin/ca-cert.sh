@@ -42,7 +42,8 @@ source $SCRIPT_DIR/envs.sh
 pushd ${top_level}/resources >/dev/null
 
 openssl genrsa -out CA.key 4096
-openssl req -x509 -new -nodes -key CA.key -subj "/CN=paulc" -days 3650 -reqexts v3_req -extensions v3_ca -out CA.cer
+# keyUsage is required by strict X.509 verification, e.g. Python 3.13 based containers such as the k8s-sidecar
+openssl req -x509 -new -nodes -key CA.key -subj "/CN=paulc" -days 3650 -config ${SCRIPT_DIR}/../resources/openssl.cnf -extensions v3_ca -out CA.cer
 
 if [[ "$OSTYPE" == "linux"* ]]; then
   sudo cp CA.cer /usr/local/share/ca-certificates/CA.crt
