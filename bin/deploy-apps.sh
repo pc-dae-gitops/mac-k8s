@@ -84,8 +84,8 @@ else
 fi
 
 if [ -f resource-descriptions/apps.yaml ]; then
-  yq '.apps[] | (.name, .namespace)' resource-descriptions/apps.yaml | \
-  while read -r APP_NAME && read -r NAMESPACE_NAME 
+  yq '.apps[] | .name + " " + .namespace' resource-descriptions/apps.yaml | \
+  while read -r APP_NAME NAMESPACE_NAME
   do
     echo "Deploy: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
     export nameSpace="${NAMESPACE_NAME}"
