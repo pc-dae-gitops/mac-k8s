@@ -70,6 +70,7 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
+check_mgmt_branch
 b64w=""
 
 if [ -n "$debug_str" ]; then

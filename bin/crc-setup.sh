@@ -49,6 +49,7 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
+check_mgmt_branch
 
 # Cluster type, published to flux via the cluster-config ConfigMap
 export CLUSTER_TYPE="crc"

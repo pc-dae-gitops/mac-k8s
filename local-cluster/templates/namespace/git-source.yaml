@@ -6,7 +6,7 @@ metadata:
 spec:
   interval: 5m0s
   ref:
-    branch: main
+    branch: ${GitHubBranch:=main}
   secretRef:
     name: github-repo-read-credentials
   url: https://${GitHubServer}/${GitHubOrg}/${GitHubRepo}.git

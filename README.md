@@ -60,6 +60,10 @@ The nr-agent and nr-otel apps send to the same New Relic account as the otel app
 
 On Kind and Docker Desktop clusters, `local-cluster/core/node-exporter` deploys node-exporter in `kube-system`, alongside kube-state-metrics. otel-node scrapes it for the Grafana node dashboards.
 
+## Cluster repository branch
+
+Flux deploys the cluster repository's `main` branch. To use another branch, e.g. one for a different cluster type, set `GITHUB_MGMT_BRANCH` in that branch's `.envrc` and check it out before running `setup.sh`. It's used for the `flux-system` GitRepository in `flux-system` and in each app namespace. `setup.sh`, `crc-setup.sh` and `deploy-apps.sh` commit and push generated files to the checked out branch, so they fail if it isn't `GITHUB_MGMT_BRANCH`.
+
 ## OpenShift Local (crc)
 
 `bin/setup.sh` detects an OpenShift Local cluster from the current context's api server (`https://api.crc.testing:6443`)

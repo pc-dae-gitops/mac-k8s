@@ -32,7 +32,7 @@ metadata:
 spec:
   interval: 5m0s
   ref:
-    branch: main
+    branch: ${GITHUB_MGMT_BRANCH}
   secretRef:
     name: flux-system
   url: https://${GITHUB_SERVER}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}

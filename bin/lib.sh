@@ -44,3 +44,15 @@ function default_cluster_name() {
     echo "${CLUSTER_TYPE:-k8s}-${GITHUB_USER:-$(id -un)}-${machine}" | tr '[:upper:]' '[:lower:]' | \
         sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-63 | sed -E 's/-+$//'
 }
+
+# Fail if the cluster repository's checked out branch isn't GITHUB_MGMT_BRANCH, the branch Flux deploys.
+# The setup scripts commit and push generated files to the checked out branch.
+function check_mgmt_branch() {
+    local branch
+    branch="$(git branch --show-current)"
+    if [ "${branch}" != "${GITHUB_MGMT_BRANCH:-main}" ]; then
+        echo "The cluster repository has branch ${branch} checked out, but Flux deploys GITHUB_MGMT_BRANCH ${GITHUB_MGMT_BRANCH:-main}." >&2
+        echo "Check out ${GITHUB_MGMT_BRANCH:-main}, or set GITHUB_MGMT_BRANCH in .envrc." >&2
+        return 1
+    fi
+}

@@ -12,3 +12,7 @@ else
   echo "No .envrc found in ${top_level}"
   exit 1
 fi
+
+# Branch of the cluster repository that Flux deploys, set GITHUB_MGMT_BRANCH in .envrc to use another branch,
+# e.g. one for a different cluster type
+export GITHUB_MGMT_BRANCH="${GITHUB_MGMT_BRANCH:-main}"
