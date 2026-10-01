@@ -5,7 +5,7 @@ metadata:
   name: cluster-config
   namespace: ${namespace}
 data:
-  clusterType: ${CLUSTER_TYPE:-docker}
+  clusterType: ${CLUSTER_TYPE:-k8s}
   clusterName: ${CLUSTER_NAME}
   dnsSuffix: ${local_dns}
   clusterIP: ${CLUSTER_IP}

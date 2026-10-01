@@ -27,13 +27,14 @@ function args()
   reset=0
   debug_str=""
   cluster_type=""
+  export CLUSTER_TYPE="k8s"
   arg_list=( "$@" )
   arg_count=${#arg_list[@]}
   arg_index=0
   while (( arg_index < arg_count )); do
     case "${arg_list[${arg_index}]}" in
           "--debug") set -x; debug_str="--debug";;
-          "--kind") cluster_type="kind"; export CLUSTER_TYPE="kind";;
+          "--kind") cluster_type="kind";;
           "--no-wait") wait=0;;
           "--flux-bootstrap") bootstrap=1;;
           "--flux-reset") reset=1;;

@@ -28,7 +28,8 @@ spec:
   values:
     otelNamespace: ${nameSpace}
     clusterType: ${clusterType}
-    clusterName: ${clusterName}
+    clusterName: ${clusterName}${suffix:=}
+    hostSuffix: ${suffix:=}
     targets: # Set otelNewRelic, otelSplunk, otelVictoriaMetrics and otelLoki in the otel app config in resource-descriptions/apps.yaml
       newrelic:
         enabled: ${otelNewRelic:=true}

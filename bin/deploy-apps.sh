@@ -17,7 +17,6 @@ function usage()
 function args()
 {
   debug_str=""
-  cluster_type=""
   arg_list=( "$@" )
   arg_count=${#arg_list[@]}
   arg_index=0
