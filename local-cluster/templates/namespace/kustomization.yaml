@@ -4,7 +4,6 @@ kind: Kustomization
 metadata:
   name: arbitrary
 resources:
-- ns.yaml
 - alerts.yaml
 - cluster-config.yaml
 - git-source.yaml

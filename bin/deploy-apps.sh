@@ -97,7 +97,7 @@ kind: Namespace
 metadata:
   name: ${nameSpace}
 EOF
-    # Wait for Flux to create the namespace
+    # Wait for the namespace
     # stdin is redirected so kubectl does not consume the app list being read by the while loop
     echo "Waiting for namespace: ${nameSpace}"
     kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
