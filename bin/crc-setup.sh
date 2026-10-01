@@ -254,6 +254,9 @@ fi
 # The OpenShift router, used by vault to access itself via its ingress host name
 export CLUSTER_IP=$(kubectl get svc -n openshift-ingress router-internal-default -o jsonpath='{.spec.clusterIP}')
 
+export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
+echo "Cluster name: ${CLUSTER_NAME}"
+
 export namespace=flux-system
 cat $(local_or_global resources/cluster-config.yaml) | envsubst > local-cluster/config/cluster-config.yaml
 git add local-cluster/config/cluster-config.yaml

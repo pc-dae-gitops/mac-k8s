@@ -98,7 +98,7 @@ function check_dns() {
 
 if [ "$cluster_type" == "kind" ]; then
   $SCRIPT_DIR/kind-cluster.sh $debug_str
-  kubectl config use-context "kind-${KIND_CLUSTER_NAME:-${CLUSTER_NAME:-local}}"
+  kubectl config use-context "kind-${KIND_CLUSTER_NAME:-local}"
 fi
 
 check_dns
@@ -272,6 +272,9 @@ if [ "$wait" == "1" ]; then
   sleep 5
 fi
 export CLUSTER_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
+
+export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
+echo "Cluster name: ${CLUSTER_NAME}"
 
 export namespace=flux-system
 cat $(local_or_global resources/cluster-config.yaml) | envsubst > local-cluster/config/cluster-config.yaml

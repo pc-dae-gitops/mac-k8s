@@ -15,7 +15,7 @@ function usage()
     echo "The kind configuration is resources/kind.yaml in the current repository if present, otherwise the" >&2
     echo "default in ${GITHUB_GLOBAL_CONFIG_REPO:-mac-k8s}. It is passed through envsubst, the following environment" >&2
     echo "variables can be set, e.g. in .envrc:" >&2
-    echo "  KIND_CLUSTER_NAME: cluster name, default \$CLUSTER_NAME" >&2
+    echo "  KIND_CLUSTER_NAME: kind cluster name, default local" >&2
     echo "  KIND_K8S_VERSION: kubernetes version, e.g. v1.33.4, default is the kind release default" >&2
     echo "  KIND_NODE_IMAGE: node image, overrides KIND_K8S_VERSION, e.g. kindest/node:v1.33.4@sha256:..." >&2
     echo "  KIND_CNI: kindnet, cilium or calico, default kindnet" >&2
@@ -56,7 +56,7 @@ args "$@"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 
-export KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-${CLUSTER_NAME:-local}}"
+export KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-local}"
 export KIND_CNI="${KIND_CNI:-kindnet}"
 export KIND_POD_SUBNET="${KIND_POD_SUBNET:-10.244.0.0/16}"
 export KIND_HTTP_PORT="${KIND_HTTP_PORT:-80}"

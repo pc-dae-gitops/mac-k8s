@@ -27,3 +27,17 @@ function local_or_global() {
         echo "${config_dir}/${local_file}"
     fi
 }
+
+# Cluster name used to tell clusters apart when several send telemetry to the same New Relic, Splunk,
+# VictoriaMetrics or Loki, e.g. kind-paul-carlton-pauls-macbook-air.
+# <cluster type>-<GitHub user>-<machine name>, lower case and limited to 63 characters. Set CLUSTER_NAME to override it.
+function default_cluster_name() {
+    local machine
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        machine="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
+    else
+        machine="$(hostname -s)"
+    fi
+    echo "${CLUSTER_TYPE:-k8s}-${GITHUB_USER:-$(id -un)}-${machine}" | tr '[:upper:]' '[:lower:]' | \
+        sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-63 | sed -E 's/-+$//'
+}

@@ -4,7 +4,7 @@
 #   KIND_HTTP_PORT    host port mapped to the ingress controller http port, default 80
 #   KIND_HTTPS_PORT   host port mapped to the ingress controller https port, default 443
 #   KIND_LISTEN_ADDRESS host address the ingress ports are bound to, default 127.0.0.1
-#   KIND_DATA_DIR     host directory holding persistent volume data, default ${HOME}/.kind/${CLUSTER_NAME}
+#   KIND_DATA_DIR     host directory holding persistent volume data, default ${HOME}/.kind/${KIND_CLUSTER_NAME}
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
