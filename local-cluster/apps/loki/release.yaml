@@ -30,10 +30,14 @@ spec:
   values:
     loki:
       ingress:
-        enabled: true # Exposes the Loki push and query API paths, there is no UI at /
+        enabled: true # Loki has no UI, / redirects to /services which lists the state of the Loki components
         ingressClassName: ${lokiIngressClassName:=nginx} # Set lokiIngressClassName to openshift-default on crc
         annotations:
           cert-manager.io/cluster-issuer: local-ca-issuer
+          nginx.ingress.kubernetes.io/app-root: /services
+        paths:
+          queryFrontend:
+            - / # All components run in the single binary, route every path to it, e.g. /ready, /config and /metrics
         hosts:
           - loki.${dnsSuffix}
         tls:
