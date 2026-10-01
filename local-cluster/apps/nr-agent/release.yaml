@@ -1,0 +1,40 @@
+# New Relic Kubernetes agent, see newrelic/README.md in the observability repository
+# Deploy it in the newrelic namespace, values-crc.yaml and values-osc.yaml refer to nr-agent-kube-state-metrics.newrelic.svc
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nr-agent
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: 10m
+  targetNamespace: ${nameSpace}
+  releaseName: nr-agent # Fixed, the chart's values refer to resources by the release name
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./newrelic/nr-agent
+      # values-<clusterType>.yaml adds the OpenShift settings on crc and osc clusters, there is none for k8s clusters
+      valuesFiles:
+        - ./newrelic/nr-agent/values.yaml
+        - ./newrelic/nr-agent/values-${clusterType}.yaml
+      ignoreMissingValuesFiles: true
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: nr-agent-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    nri-bundle:
+      global:
+        cluster: ${clusterName} # Without the otel suffix, so its data can be told apart from the otel collectors'

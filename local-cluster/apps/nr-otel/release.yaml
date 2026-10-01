@@ -1,0 +1,38 @@
+# New Relic Kubernetes OpenTelemetry collectors, see newrelic/README.md in the observability repository
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nr-otel
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: 10m
+  targetNamespace: ${nameSpace}
+  releaseName: nr-otel # Fixed, the chart's values refer to resources by the release name
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./newrelic/nr-otel
+      # values-<clusterType>.yaml adds the OpenShift settings on crc and osc clusters, there is none for k8s clusters
+      valuesFiles:
+        - ./newrelic/nr-otel/values.yaml
+        - ./newrelic/nr-otel/values-${clusterType}.yaml
+      ignoreMissingValuesFiles: true
+      sourceRef:
+        kind: GitRepository
+        name: observability
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: nr-otel-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    nr-k8s-otel-collector:
+      cluster: ${clusterName} # Without the otel suffix, so its data can be told apart from the otel collectors'

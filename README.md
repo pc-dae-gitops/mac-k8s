@@ -17,6 +17,9 @@ The `local-cluster/apps` directory has app templates for the charts in the [obse
 | `victoria-metrics` | `victoria-metrics` | `victoria-metrics/victoria-metrics`, with an ingress at `victoria-metrics.<dnsSuffix>` |
 | `loki` | `loki` | `loki/loki`, with an ingress at `loki.<dnsSuffix>`, Loki has no UI so `/` redirects to `/services` |
 | `grafana` | `grafana` | `grafana/grafana`, with an ingress at `grafana.<dnsSuffix>` |
+| `splunk` | `splunk` | `splunk/splunk-enterprise`, with ingresses at `splunk.<dnsSuffix>` and `splunk-hec.<dnsSuffix>` |
+| `nr-agent` | `newrelic` | `newrelic/nr-agent`, the New Relic Kubernetes agent |
+| `nr-otel` | `nr-otel` | `newrelic/nr-otel`, New Relic's Kubernetes OpenTelemetry collectors |
 
 Add them to `resource-descriptions/apps.yaml` in the cluster repository, then run `deploy-apps.sh`. Each app needs its own copy of the observability repository token template at `resources/secrets/apps/<app>/observability-git-token.json`; `secrets.sh` loads it into Vault.
 
@@ -50,6 +53,10 @@ kubectl -n grafana get secret grafana-admin -o jsonpath='{.data.admin-password}'
 Grafana has VictoriaMetrics, the default, and Loki datasources. The otel app's otel-cluster collector scrapes the VictoriaMetrics and Loki metrics when `otelVictoriaMetrics` is `"true"`, for the dashboards in Grafana's VictoriaMetrics and Loki folders.
 
 On crc, set `grafanaIngressClassName: openshift-default` in the grafana app config. The victoria-metrics, loki and grafana apps haven't been tested on crc, and may need SCC changes for their fixed user IDs.
+
+The splunk app needs `SPLUNK_ADMIN_PASSWORD` (8 characters or more) and `SPLUNK_HEC_TOKEN` (a GUID, e.g. from `uuidgen`) set in your bash profile. Use the same `SPLUNK_HEC_TOKEN` for the otel app's `splunk-hec-token`, so the otel gateway can send to it. To send logs to it, set `logging.enabled: true` and `targets.splunk.endpoint: http://splunk.splunk.svc:8088` in the otel gateway's values, e.g. `local-cluster/apps/config/otel/gateway-values.yaml` in the cluster repository. The `splunk/splunk` image is amd64 only. On Apple Silicon, load a relabelled copy into the Kind nodes and set `splunkImageRepository: local/splunk` and `splunkImagePullPolicy: Never` in the app config; see the [Splunk README](https://github.com/pc-dae/observability/blob/main/splunk/README.md#apple-silicon).
+
+The nr-agent and nr-otel apps send to the same New Relic account as the otel app. They read its license key from Vault at `apps/otel/newrelic-key`, so they need no secrets in `apps.yaml`. They use the cluster name without the otel `suffix`, so their data can be compared with the otel collectors'. Deploy nr-agent in the `newrelic` namespace. On crc, their HelmReleases add the chart's `values-crc.yaml` with the OpenShift settings.
 
 On Kind and Docker Desktop clusters, `local-cluster/core/node-exporter` deploys node-exporter in `kube-system`, alongside kube-state-metrics. otel-node scrapes it for the Grafana node dashboards.
 
