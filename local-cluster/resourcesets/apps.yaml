@@ -1,7 +1,17 @@
 # Generates the Flux objects for each app listed in the apps ResourceSetInputProvider,
 # which is in the configuration repository at local-cluster/apps/inputs/apps.yaml.
-# Per app: a Namespace, the local-ca and cluster-config ConfigMaps and a chain of Flux Kustomizations,
-# namespace -> source -> config -> cluster-config (optional) -> app.
+# Per app:
+# - the Namespace, the local-ca and cluster-config ConfigMaps, copied from flux-system, and the <app>-config ConfigMap
+#   with the app's config, used by the app's Kustomizations' postBuild substitutions
+# - an ExternalSecret for each of the app's secrets and its sourceSecret, deploy-apps.sh writes them to Vault at
+#   apps/<app>/<secret name>
+# - a chain of Flux Kustomizations:
+#   namespace-<namespace> -> app-source-<app> -> app-config-<app> (if clusterConfig) -> app-<app> and release-<release>
+#   app-source-<app>: the GitRepository the app is deployed from, see local-cluster/templates/app-source
+#   app-config-<app>:  local-cluster/apps/config/<app> in the configuration repository, i.e. <release>-values ConfigMaps
+#   app-<app>:         the manifests at sourcePath in the source repository, if sourcePath is set or the app has no
+#                      releases, sourcePath defaults to apps/<app>
+#   release-<release>: a HelmRelease for each of the app's releases, see local-cluster/templates/helm-release
 apiVersion: fluxcd.controlplane.io/v1
 kind: ResourceSet
 metadata:
@@ -16,7 +26,13 @@ spec:
     <<- range $a := inputs.apps >>
     <<- $ns := $a.namespace >>
     <<- $app := $a.name >>
-    <<- $config := get $a "config" >>
+    <<- $source := get $a "source" | default dict >>
+    <<- $config := get $a "config" | default dict >>
+    <<- $secrets := get $a "secrets" | default dict >>
+    <<- $releases := get $a "releases" | default list >>
+    <<- $sourceSecret := get $source "sourceSecret" >>
+    <<- $sourcePath := get $source "sourcePath" | default (ternary "" (printf "apps/%s" $app) (gt (len $releases) 0)) >>
+    <<- $configDep := ternary (printf "app-config-%s" $app) (printf "app-source-%s" $app) (eq (toString (get $a "clusterConfig")) "true") >>
     ---
     apiVersion: v1
     kind: Namespace
@@ -43,6 +59,42 @@ spec:
       namespace: << $ns >>
       annotations:
         fluxcd.controlplane.io/copyFrom: flux-system/cluster-config
+    ---
+    # The app's config, used by the app's Kustomizations' postBuild substitutions
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: << $app >>-config
+      namespace: << $ns >>
+    data:
+      nameSpace: << $ns | quote >>
+      appName: << $app | quote >>
+      <<- range $k, $v := $config >>
+      << $k >>: << $v | toString | quote >>
+      <<- end >>
+    <<- $secretNames := keys $secrets >>
+    <<- if and $sourceSecret (not (has $sourceSecret $secretNames)) >>
+    <<- $secretNames = append $secretNames $sourceSecret >>
+    <<- end >>
+    <<- range $s := $secretNames >>
+    ---
+    apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: << $s >>
+      namespace: << $ns >>
+    spec:
+      refreshInterval: 5m
+      secretStoreRef:
+        kind: SecretStore
+        name: vault
+      target:
+        name: << $s >>
+        creationPolicy: Owner
+      dataFrom:
+        - extract:
+            key: apps/<< $app >>/<< $s >>
+    <<- end >>
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
     kind: Kustomization
@@ -75,25 +127,40 @@ spec:
     spec:
       interval: 5m0s
       retryInterval: 30s
-      timeout: 30s
+      timeout: 2m
       dependsOn:
         - name: namespace-<< $ns >>
           namespace: flux-system
-      path: ./local-cluster/apps/<< $app >>/source
+      path: ./local-cluster/templates/app-source
       prune: true
       wait: true
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
+      <<- if $sourceSecret >>
+      patches:
+        - target:
+            kind: GitRepository
+          patch: |
+            - op: add
+              path: /spec/secretRef
+              value:
+                name: << $sourceSecret >>
+      <<- end >>
       postBuild:
         substitute:
+          <<- range $k, $v := $source >>
+          <<- if and (ne $k "sourcePath") (ne $k "sourceSecret") >>
+          << $k >>: << $v | toString | quote >>
+          <<- end >>
+          <<- end >>
           nameSpace: << $ns >>
           appName: << $app >>
-          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
         substituteFrom:
           - kind: ConfigMap
             name: cluster-config
+    <<- if eq (toString (get $a "clusterConfig")) "true" >>
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
     kind: Kustomization
@@ -107,35 +174,6 @@ spec:
       dependsOn:
         - name: app-source-<< $app >>
           namespace: << $ns >>
-      path: ./local-cluster/apps/<< $app >>/config
-      prune: true
-      wait: true
-      sourceRef:
-        kind: GitRepository
-        name: mac-k8s-config
-        namespace: flux-system
-      postBuild:
-        substitute:
-          nameSpace: << $ns >>
-          appName: << $app >>
-          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
-        substituteFrom:
-          - kind: ConfigMap
-            name: cluster-config
-    <<- if get $a "clusterConfig" >>
-    ---
-    apiVersion: kustomize.toolkit.fluxcd.io/v1
-    kind: Kustomization
-    metadata:
-      name: app-cluster-config-<< $app >>
-      namespace: << $ns >>
-    spec:
-      interval: 5m0s
-      retryInterval: 30s
-      timeout: 30s
-      dependsOn:
-        - name: app-config-<< $app >>
-          namespace: << $ns >>
       path: ./local-cluster/apps/config/<< $app >>
       prune: true
       wait: true
@@ -144,17 +182,13 @@ spec:
         name: flux-system
         namespace: flux-system
       postBuild:
-        substitute:
-          nameSpace: << $ns >>
-          appName: << $app >>
-          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
         substituteFrom:
           - kind: ConfigMap
             name: cluster-config
           - kind: ConfigMap
             name: << $app >>-config
-            optional: true
     <<- end >>
+    <<- if $sourcePath >>
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
     kind: Kustomization
@@ -164,33 +198,66 @@ spec:
     spec:
       interval: 5m0s
       retryInterval: 30s
-      timeout: 30s
+      timeout: 5m
       dependsOn:
-        - name: app-config-<< $app >>
+        - name: << $configDep >>
           namespace: << $ns >>
-        <<- if get $a "clusterConfig" >>
-        - name: app-cluster-config-<< $app >>
+      path: ./<< $sourcePath | trimPrefix "./" >>
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: << $app >>
+        namespace: << $ns >>
+      postBuild:
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+          - kind: ConfigMap
+            name: << $app >>-config
+    <<- end >>
+    <<- range $r := $releases >>
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: release-<< $r.name >>
+      namespace: << $ns >>
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: << get $r "timeout" | default "5m" >>
+      dependsOn:
+        - name: << $configDep >>
           namespace: << $ns >>
-        <<- end >>
-      path: ./local-cluster/apps/<< $app >>
+      path: ./local-cluster/templates/helm-release
       prune: true
       wait: true
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
+      patches:
+        - target:
+            kind: HelmRelease
+          patch: |
+            <<- with get $r "valuesFiles" >>
+            - op: add
+              path: /spec/chart/spec/valuesFiles
+              value: << toJson . >>
+            <<- end >>
+            - op: add
+              path: /spec/values
+              value: << get $r "values" | default dict | toJson >>
       postBuild:
         substitute:
-          nameSpace: << $ns >>
-          appName: << $app >>
-          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
+          releaseName: << $r.name >>
+          chart: << $r.chart | quote >>
+          releaseTimeout: << get $r "timeout" | default "5m" >>
         substituteFrom:
           - kind: ConfigMap
             name: cluster-config
           - kind: ConfigMap
             name: << $app >>-config
-            optional: true
-          - kind: ConfigMap
-            name: << $app >>-cluster-config
-            optional: true
+    <<- end >>
     <<- end >>

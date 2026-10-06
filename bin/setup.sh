@@ -89,10 +89,13 @@ if [ "$cluster_type" != "kind" ] && \
   flux_suffix="-crc"
   export FLUX_CLUSTER_TYPE=openshift
   export vaultIngress="-ingress"
+  # Ingress class for app ingresses, see cluster-config ingressClassName
+  export INGRESS_CLASS_NAME=openshift-default
 else
   echo "Waiting for cluster to be ready"
   kubectl wait --for=condition=Available  -n kube-system deployment coredns
   export FLUX_CLUSTER_TYPE=kubernetes
+  export INGRESS_CLASS_NAME=nginx
   # Cluster settings used by the core addon charts, see resources/cluster-config.yaml
   # kind clusters run ingress-nginx on the control-plane node, binding the host ports kind maps to the host
   if [[ "$(kubectl get nodes -o jsonpath='{.items[0].spec.providerID}')" == kind://* ]]; then

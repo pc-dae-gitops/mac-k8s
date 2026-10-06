@@ -1,0 +1,38 @@
+# One of an app's Helm releases, applied by the app's release Kustomization, see local-cluster/resourcesets/apps.yaml.
+# The chart is in the app's source repository. The ResourceSet patches in the release's valuesFiles and values, before
+# the cluster-config and app config substitutions, so values can use them, e.g. grafana.${dnsSuffix}.
+# Values precedence, lowest first: the chart's values.yaml, the valuesFiles in order, the <release>-values ConfigMap,
+# e.g. from local-cluster/apps/config/<app> in the cluster repository, and the values in apps.yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${releaseName}
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: ${releaseTimeout:=5m}
+  targetNamespace: ${nameSpace}
+  releaseName: ${releaseName}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ${chart}
+      reconcileStrategy: Revision
+      ignoreMissingValuesFiles: true
+      sourceRef:
+        kind: GitRepository
+        name: ${appName}
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: ${releaseName}-values
+      valuesKey: values.yaml
+      optional: true

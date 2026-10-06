@@ -9,6 +9,7 @@ data:
   kindCluster: "${KIND_CLUSTER:-false}"
   kubeletInsecureTLS: "${KUBELET_INSECURE_TLS:-false}"
   storageClass: "${STORAGE_CLASS}"
+  ingressClassName: "${INGRESS_CLASS_NAME}"
   clusterName: "${CLUSTER_NAME}"
   dnsSuffix: "${local_dns}"
   clusterIP: "${CLUSTER_IP}"
