@@ -11,7 +11,7 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: local-ca-issuer
-  commonName: "*.${dnsSuffix}"
+  commonName: "*.{{ .Values.dnsSuffix }}"
   dnsNames:
-    - "*.${dnsSuffix}"
-    - ${dnsSuffix}
+    - "*.{{ .Values.dnsSuffix }}"
+    - {{ .Values.dnsSuffix }}

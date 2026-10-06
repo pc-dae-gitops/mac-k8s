@@ -1,0 +1,179 @@
+# Generates the Flux objects for each app listed in the apps ResourceSetInputProvider,
+# which is in the configuration repository at local-cluster/apps/inputs/apps.yaml.
+# Per app: a Namespace, the local-ca ConfigMap and a chain of Flux Kustomizations,
+# namespace -> source -> config -> cluster-config (optional) -> app.
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: apps
+  namespace: flux-system
+spec:
+  inputsFrom:
+    - apiVersion: fluxcd.controlplane.io/v1
+      kind: ResourceSetInputProvider
+      name: apps
+  resourcesTemplate: |
+    <<- range $a := inputs.apps >>
+    <<- $ns := $a.namespace >>
+    <<- $app := $a.name >>
+    <<- $config := get $a "config" >>
+    ---
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: << $ns >>
+      annotations:
+        # Removing an app from the list must not delete its namespace and data
+        fluxcd.controlplane.io/prune: disabled
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: local-ca
+      namespace: << $ns >>
+      annotations:
+        fluxcd.controlplane.io/copyFrom: flux-system/local-ca
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: namespace-<< $ns >>
+      namespace: flux-system
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: 30s
+      dependsOn:
+        - name: flux
+      path: ./local-cluster/templates/namespace
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+      postBuild:
+        substitute:
+          nameSpace: << $ns >>
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: app-source-<< $app >>
+      namespace: << $ns >>
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: 30s
+      dependsOn:
+        - name: namespace-<< $ns >>
+          namespace: flux-system
+      path: ./local-cluster/apps/<< $app >>/source
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+      postBuild:
+        substitute:
+          nameSpace: << $ns >>
+          appName: << $app >>
+          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: app-config-<< $app >>
+      namespace: << $ns >>
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: 30s
+      dependsOn:
+        - name: app-source-<< $app >>
+          namespace: << $ns >>
+      path: ./local-cluster/apps/<< $app >>/config
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+      postBuild:
+        substitute:
+          nameSpace: << $ns >>
+          appName: << $app >>
+          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+    <<- if get $a "clusterConfig" >>
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: app-cluster-config-<< $app >>
+      namespace: << $ns >>
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: 30s
+      dependsOn:
+        - name: app-config-<< $app >>
+          namespace: << $ns >>
+      path: ./local-cluster/apps/config/<< $app >>
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: flux-system
+      postBuild:
+        substitute:
+          nameSpace: << $ns >>
+          appName: << $app >>
+          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+          - kind: ConfigMap
+            name: << $app >>-config
+            optional: true
+    <<- end >>
+    ---
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: app-<< $app >>
+      namespace: << $ns >>
+    spec:
+      interval: 5m0s
+      retryInterval: 30s
+      timeout: 30s
+      dependsOn:
+        - name: app-<< if get $a "clusterConfig" >>cluster-<< end >>config-<< $app >>
+          namespace: << $ns >>
+      path: ./local-cluster/apps/<< $app >>
+      prune: true
+      wait: true
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+      postBuild:
+        substitute:
+          nameSpace: << $ns >>
+          appName: << $app >>
+          <<- with $config >><< . | toYaml | nindent 6 >><< end >>
+        substituteFrom:
+          - kind: ConfigMap
+            name: cluster-config
+          - kind: ConfigMap
+            name: << $app >>-config
+            optional: true
+          - kind: ConfigMap
+            name: << $app >>-cluster-config
+            optional: true
+    <<- end >>

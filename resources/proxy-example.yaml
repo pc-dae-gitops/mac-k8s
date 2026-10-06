@@ -1,0 +1,17 @@
+# Proxy settings, copy to local-cluster/local-config/proxy.yaml in the cluster repository if a proxy is needed to
+# access the internet, .envrc sets PROXY=true if it exists. setup.sh applies it to each namespace listed in
+# resources/<cluster type>-local-ca-namespaces.txt, substituting NAMESPACE.
+# The flux operator, Flux controllers and the core addons that access external services, external-secrets and cert-manager,
+# use it. NO_PROXY is extended with the kubernetes api server, localhost, .svc and .cluster.local, add any other
+# destinations that must not use the proxy, i.e. the cluster's node, pod and service CIDRs and internal registries.
+# On OpenShift Local also set the cluster wide proxy, used by the nodes and OLM operators, i.e.
+# crc config set http-proxy/https-proxy/no-proxy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-config
+  namespace: ${NAMESPACE}
+data:
+  HTTP_PROXY: http://proxy.example.com:3128
+  HTTPS_PROXY: http://proxy.example.com:3128
+  NO_PROXY: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.example.com

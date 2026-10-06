@@ -24,7 +24,8 @@ spec:
   timeout: 5m
   values:
     hostNetwork: true
-    {{- if not (empty (default "" .Values.mirrorRegistry)) }}
-    image:
-      registry: ${mirrorRegistry}
-    {{- end }}
+    global:
+      {{- if .Values.mirrorRegistry }}
+      imageRegistry: {{ .Values.mirrorRegistry }}
+      {{- end }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}

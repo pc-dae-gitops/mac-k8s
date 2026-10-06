@@ -10,3 +10,10 @@ spec:
   name: openshift-cert-manager-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace
+  {{- if include "addon.certsEnabled" . }}
+  config:
+    env:
+      # See trusted-ca.yaml
+      - name: TRUSTED_CA_CONFIGMAP_NAME
+        value: trusted-ca
+  {{- end }}

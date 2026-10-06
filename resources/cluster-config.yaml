@@ -6,6 +6,8 @@ metadata:
   namespace: ${namespace}
 data:
   clusterType: ${CLUSTER_TYPE:-k8s}
+  kindCluster: "${KIND_CLUSTER:-false}"
+  kubeletInsecureTLS: "${KUBELET_INSECURE_TLS:-false}"
   clusterName: ${CLUSTER_NAME}
   dnsSuffix: ${local_dns}
   clusterIP: ${CLUSTER_IP}
@@ -24,4 +26,5 @@ data:
   mirrorRegistry: ${CORP_MIRROR:-}
   proxy: ${PROXY:-false}
   certs: ${CERTS:-false}
+  imagePullSecretName: ${IMAGE_PULL_SECRET_NAME:-}
   vaultIngress: ${vaultIngress:=}

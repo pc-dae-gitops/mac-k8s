@@ -9,7 +9,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
-  # ingress-nginx is scheduled on this node and binds host ports 80/443, see resources/kind-ingress-nginx-values.yaml
+  # ingress-nginx is scheduled on this node and binds host ports 80/443, see local-cluster/core/charts/k8s/nginx
   labels:
     ingress-ready: "true"
   extraPortMappings:

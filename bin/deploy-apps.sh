@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-# Utility deploy apps to local kubernetes cluster
-# Version: 1.0
+# Utility to configure Vault for the apps deployed by the apps ResourceSet
+# The ResourceSet (local-cluster/resourcesets/apps.yaml) creates the namespaces and Flux Kustomizations,
+# this script writes each app's secrets to Vault and the Vault policies and roles used by External Secrets
+# Version: 2.0
 # Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 set -euo pipefail
@@ -9,8 +11,8 @@ set -euo pipefail
 function usage()
 {
     echo "usage ${0} [--debug]" >&2
-    echo "This script will deploy apps to the cluster referenced by the current context" >&2
-    echo "OpenShift Local (crc) clusters are detected from the current context" >&2
+    echo "This script will write app secrets to Vault and configure Vault Kubernetes auth for each app" >&2
+    echo "Apps and their secrets are read from local-cluster/apps/inputs/apps.yaml" >&2
     echo "  --debug: emmit debugging information" >&2
 }
 
@@ -36,29 +38,23 @@ function args()
   done
 }
 
-function add_config()
-{
-    # Add the app's config key value pairs from apps.yaml to the Kustomization's postBuild substitutions
-    # Values are converted to strings because Flux substitutions must be strings
-    # Values are expanded from environment variables, yq fails if a referenced variable is unset or empty
-    # Assigned before export so set -e catches a yq failure
-    # stdin is redirected so yq does not consume the app list being read by the while loop
-    APP_CONFIG="$(yq '.apps[] | select(.name == strenv(appName)) | (.config // {}) | with_entries(.value |= (tostring | envsubst(nu,ne)))' \
-      resource-descriptions/apps.yaml </dev/null)"
-    export APP_CONFIG
-    yq -i '.spec.postBuild.substitute += env(APP_CONFIG) | .spec.postBuild.substitute[] style=""' "${app_ks}" </dev/null
-}
-
 function add_secrets()
 {
     # Create a Vault secret at apps/<app name>/<secret name> for each of the app's secrets in apps.yaml
     # Values are expanded from environment variables, yq fails if a referenced variable is unset or empty
+    # Values that are not environment variable references are committed to Git as written, so warn about them
     # Output is captured first so set -e catches a yq failure, one line per secret: <secret name> <json data>
     # stdin is redirected so yq and vault do not consume the app list being read by the while loop
-    local app_secrets secret_name secret_data
-    app_secrets="$(yq '.apps[] | select(.name == strenv(appName)) | (.secrets // {}) | to_entries[] |
+    local app_secrets literals secret_name secret_data
+    literals="$(yq '.spec.defaultValues.apps[] | select(.name == strenv(appName)) | (.secrets // {}) | to_entries[] |
+      .key as $s | .value | to_entries[] | select((.value | tostring) | test("^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$") | not) |
+      $s + "." + .key' "${apps_file}" </dev/null)"
+    if [ -n "${literals}" ]; then
+      echo "Warning: ${appName} secret values not set from environment variables, check they are not sensitive: ${literals//$'\n'/, }" >&2
+    fi
+    app_secrets="$(yq '.spec.defaultValues.apps[] | select(.name == strenv(appName)) | (.secrets // {}) | to_entries[] |
       .key + " " + (.value | with_entries(.value |= (tostring | envsubst(nu,ne))) | to_json(0))' \
-      resource-descriptions/apps.yaml </dev/null)"
+      "${apps_file}" </dev/null)"
     while read -r secret_name secret_data; do
       [ -z "${secret_name}" ] && continue
       echo "Create Vault secret: apps/${appName}/${secret_name}"
@@ -66,99 +62,54 @@ function add_secrets()
     done <<< "${app_secrets}"
 }
 
+function add_vault_auth()
+{
+    # Give the namespace's vault-secrets service account read access to its apps' secrets
+    # One policy per app, covering apps/<app name>/*
+    # One role per namespace, bound to the vault-secrets service account, with the policies
+    # of every app in that namespace plus namespace-common, so namespaces shared by apps work
+    # stdin is redirected so yq and vault do not consume the app list being read by the while loop
+    local policies
+    vault policy write "app-${appName}" - >/dev/null <<EOF
+path "secrets/data/apps/${appName}/*" {
+  capabilities = ["read"]
+}
+EOF
+    policies="$(yq '[.spec.defaultValues.apps[] | select(.namespace == strenv(nameSpace)) | "app-" + .name] | join(",")' \
+      "${apps_file}" </dev/null)"
+    echo "Create Vault role: ${nameSpace}, policies: namespace-common,${policies}"
+    vault write "auth/kubernetes/role/${nameSpace}" \
+      bound_service_account_names=vault-secrets \
+      bound_service_account_namespaces="${nameSpace}" \
+      policies="namespace-common,${policies}" \
+      ttl=1h >/dev/null </dev/null
+}
+
 args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 check_mgmt_branch
-b64w=""
 
 if [ -n "$debug_str" ]; then
   env | sort
 fi
 
-if [ "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)" == "https://api.crc.testing:6443" ]; then
-  export CLUSTER_TYPE="crc"
-else
-  export CLUSTER_TYPE="k8s" # Docker or Kind, doesn't matter which, they are both not CRC/OpenShift
+apps_file="local-cluster/apps/inputs/apps.yaml"
+
+if [ ! -f "${apps_file}" ]; then
+  echo "No apps to configure, ${apps_file} not found"
+  exit 0
 fi
 
-if [ -f resource-descriptions/apps.yaml ]; then
-  yq '.apps[] | .name + " " + .namespace' resource-descriptions/apps.yaml | \
-  while read -r APP_NAME NAMESPACE_NAME
-  do
-    echo "Deploy: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
-    export nameSpace="${NAMESPACE_NAME}"
-    export appName="${APP_NAME}"
-    # Create namespace for app
-  kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${nameSpace}
-EOF
-    # Wait for the namespace
-    # stdin is redirected so kubectl does not consume the app list being read by the while loop
-    echo "Waiting for namespace: ${nameSpace}"
-    kubectl wait --for=create namespace/${nameSpace} --timeout=5m </dev/null
+export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
 
-    export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
-    kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: vault-token
-  namespace: ${nameSpace}
-data:
-  vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
-EOF
-    proxy_cert ${NAMESPACE_NAME}
-    add_registry_image_pull_secret ${NAMESPACE_NAME}
-    add_mirror_image_pull_secret ${NAMESPACE_NAME}
-    cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
-    export dependsOnName="namespace-${nameSpace}"
-    export dependsOnNs="flux-system"
-
-    if [ -d $config_dir/local-cluster/apps/${appName}/source ]; then # Deploy App source access objects
-      app_ks="local-cluster/apps/ks/${appName}-source-ks.yaml"
-      cat $(local_or_global resources/app-source-ks.yaml) | envsubst > "${app_ks}"
-      add_config
-      export dependsOnName="app-source-${appName}"
-      export dependsOnNs="${nameSpace}"
-    fi
-
-    if [ -d $config_dir/local-cluster/apps/${appName}/config ]; then # Deploy App Config
-      app_ks="local-cluster/apps/ks/${appName}-config-ks.yaml"
-      cat $(local_or_global resources/app-config-ks.yaml) | envsubst > "${app_ks}"
-      add_config
-      export dependsOnName="app-config-${appName}"
-      export dependsOnNs="${nameSpace}"
-    fi
-
-    if [ -d local-cluster/apps/config/${appName} ]; then # Deploy App Cluster Config
-      app_ks="local-cluster/apps/ks/${appName}-cluster-config-ks.yaml"
-      cat $(local_or_global resources/app-cluster-config-ks.yaml) | envsubst > "${app_ks}"
-      add_config
-      export dependsOnName="app-cluster-config-${appName}"
-      export dependsOnNs="${nameSpace}"
-    fi
-
-    # Create App Secrets in Vault
-    add_secrets
-
-    # Deploy App
-    app_ks="local-cluster/apps/ks/${appName}-ks.yaml"
-    cat $(local_or_global resources/app-ks.yaml) | envsubst > "${app_ks}"
-    add_config
-
-    git add local-cluster
-    if [[ `git status --porcelain` ]]; then
-      git commit -m "Add app: ${appName} in namespace: ${nameSpace}"
-      git pull
-      git push
-    fi
-
-    kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
-    kubectl apply -f /tmp/ca.yaml
-  done
-fi
+yq '.spec.defaultValues.apps[] | .name + " " + .namespace' "${apps_file}" | \
+while read -r APP_NAME NAMESPACE_NAME
+do
+  echo "Configure Vault for: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
+  export nameSpace="${NAMESPACE_NAME}"
+  export appName="${APP_NAME}"
+  add_secrets
+  add_vault_auth
+done

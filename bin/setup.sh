@@ -91,37 +91,19 @@ if [ "$cluster_type" != "kind" ] && \
   flux_suffix="-crc"
   export FLUX_CLUSTER_TYPE=openshift
   export vaultIngress="-ingress"
-  cat $(local_or_global resources/crc/logging.yaml) |envsubst | kubectl apply -f -
-  # Wait for the cluster logging operator to be installed
-  kubectl wait --timeout=2m --for=jsonpath='{.status.phase}'=Active namespace/openshift-logging
-  kubectl wait --timeout=5m --for=jsonpath='{.status.state}'=AtLatestKnown subscription.operators.coreos.com/cluster-logging -n openshift-logging
-  csv="$(kubectl get subscription.operators.coreos.com/cluster-logging -n openshift-logging -o jsonpath='{.status.installedCSV}')"
-  echo "Waiting for cluster logging operator $csv"
-  kubectl wait --timeout=10m --for=jsonpath='{.status.phase}'=Succeeded clusterserviceversion/$csv -n openshift-logging
 else
   echo "Waiting for cluster to be ready"
   kubectl wait --for=condition=Available  -n kube-system deployment coredns
-  helm install flux-operator oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator --namespace flux-system
   export FLUX_CLUSTER_TYPE=kubernetes
-  mkdir -p $target_path/config
-  if [ "$cluster_type" == "kind" ]; then
-    kubectl apply -f ${config_dir}/local-cluster/core/nginx/namespace.yaml
-    cluster_values ingress-nginx ingress-nginx "$(local_or_global resources/kind-ingress-nginx-values.yaml)"
-  else
-    cluster_values ingress-nginx ingress-nginx
+  # Cluster settings used by the core addon charts, see resources/cluster-config.yaml
+  # kind clusters run ingress-nginx on the control-plane node, binding the host ports kind maps to the host
+  if [[ "$(kubectl get nodes -o jsonpath='{.items[0].spec.providerID}')" == kind://* ]]; then
+    export KIND_CLUSTER=true
   fi
   # metrics-server can only verify kubelet serving certificates if they are signed by the cluster CA, see kind metrics extra
   kubelet_config="$(kubectl get configmap -n kube-system kubelet-config -o jsonpath='{.data.kubelet}' 2>/dev/null || true)"
-  if [[ "${kubelet_config}" == *"serverTLSBootstrap: true"* ]]; then
-    cluster_values metrics-server kube-system
-  else
-    cluster_values metrics-server kube-system "$(local_or_global resources/metrics-server-kubelet-insecure-values.yaml)"
-  fi
-  git add -A $target_path/config
-  if [[ `git status --porcelain` ]]; then
-    git commit -m "update cluster type specific helm values"
-    git pull
-    git push
+  if [[ "${kubelet_config}" != *"serverTLSBootstrap: true"* ]]; then
+    export KUBELET_INSECURE_TLS=true
   fi
   flux_suffix="-mac"
 fi
@@ -147,7 +129,7 @@ combined_ca_certs
 
 # Install CA Certificate secret so Cert Manager can issue certificates using our CA
 
-kubectl apply -f ${config_dir}/local-cluster/core/cert-manager/namespace.yaml
+kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
@@ -188,15 +170,27 @@ data:
   password: $(echo -n "$GITHUB_TOKEN_GITOPS_READ" | base64 ${b64w})
 EOF
 
-cp $(local_or_global resources/flux-instance.yaml) /tmp
-if [[ -n "${CORP_MIRROR:-}" ]]; then
-  add_mirror_image_pull_secret  flux-system
-  sed 's/^/          /' ${config_dir}/resources/cert-patch.yaml >> /tmp/flux-instance.yaml
-  sed 's/^/      /' ${config_dir}/resources/sa-image-patch.yaml >> /tmp/flux-instance.yaml
+# OpenShift Local (crc) installs the flux operator from OperatorHub, see crc-setup.sh
+if [ "${CLUSTER_TYPE}" != "crc" ]; then
+  # Installed once the flux-system ConfigMaps and image pull secret it uses exist, the chart is pulled from the mirror
+  # if CORP_MIRROR is set
+  if [[ -n "${CORP_MIRROR:-}" && -n "${CORP_MIRROR_USER:-}" ]]; then
+    echo -n "${CORP_MIRROR_TOKEN:-}" | helm registry login ${CORP_MIRROR} --username ${CORP_MIRROR_USER} --password-stdin
+  fi
+  helm upgrade --install flux-operator oci://${CORP_MIRROR:-ghcr.io}/controlplaneio-fluxcd/charts/flux-operator --namespace flux-system \
+    --values "$(flux_operator_values /tmp/flux-operator-values.yaml)"
 fi
-if [[ "${CORP_PROXY:-}" == "true" ]]; then
-  add_mirror_image_pull_secret  flux-system
-  sed 's/^/          /' ${config_dir}/resources/sa-image-patch.yaml >> /tmp/flux-instance.yaml
+
+cp $(local_or_global resources/flux-instance.yaml) /tmp
+# Flux controller patches, the json patch operations are appended to the Deployment patch, then the ServiceAccount patch
+if [[ "${CERTS:-false}" == "true" ]]; then
+  sed 's/^/          /' ${config_dir}/resources/cert-patch.yaml >> /tmp/flux-instance.yaml
+fi
+if [[ "${PROXY:-false}" == "true" ]]; then
+  sed 's/^/          /' ${config_dir}/resources/proxy-patch.yaml >> /tmp/flux-instance.yaml
+fi
+if [[ -n "${IMAGE_PULL_SECRET_NAME:-}" ]]; then
+  sed 's/^/      /' ${config_dir}/resources/sa-image-patch.yaml >> /tmp/flux-instance.yaml
 fi
 
 envsubst < /tmp/flux-instance.yaml | kubectl apply -f -
@@ -271,5 +265,14 @@ vault-secrets-config.sh $debug_str --tls-skip
 secrets.sh $debug_str --tls-skip
 
 kubectl rollout restart deployment -n external-secrets external-secrets
+
+if [ "${CLUSTER_TYPE}" == "crc" ]; then
+  # Wait for the cluster logging operator to be installed
+  kubectl wait --timeout=2m --for=jsonpath='{.status.phase}'=Active namespace/openshift-logging
+  kubectl wait --timeout=5m --for=jsonpath='{.status.state}'=AtLatestKnown subscription.operators.coreos.com/cluster-logging -n openshift-logging
+  csv="$(kubectl get subscription.operators.coreos.com/cluster-logging -n openshift-logging -o jsonpath='{.status.installedCSV}')"
+  echo "Waiting for cluster logging operator $csv"
+  kubectl wait --timeout=10m --for=jsonpath='{.status.phase}'=Succeeded clusterserviceversion/$csv -n openshift-logging
+fi
 
 deploy-apps.sh $debug_str

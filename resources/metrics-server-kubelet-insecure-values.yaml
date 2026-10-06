@@ -1,4 +1,0 @@
-# metrics-server helm values used when kubelet serving certificates are self signed, e.g. Docker Kubernetes
-# or kind clusters without the metrics extra
-args:
-  - --kubelet-insecure-tls

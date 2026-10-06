@@ -21,7 +21,7 @@ The `local-cluster/apps` directory has app templates for the charts in the [obse
 | `nr-agent` | `newrelic` | `newrelic/nr-agent`, the New Relic Kubernetes agent |
 | `nr-otel` | `nr-otel` | `newrelic/nr-otel`, New Relic's Kubernetes OpenTelemetry collectors |
 
-Add them to `resource-descriptions/apps.yaml` in the cluster repository, then run `deploy-apps.sh`. Each app needs its own copy of the observability repository token template at `resources/secrets/apps/<app>/observability-git-token.json`; `secrets.sh` loads it into Vault.
+Add them to `local-cluster/apps/inputs/apps.yaml` in the cluster repository, then run `deploy-apps.sh`. Each app needs its own copy of the observability repository token template at `resources/secrets/apps/<app>/observability-git-token.json`; `secrets.sh` loads it into Vault.
 
 Each app's `config` in `apps.yaml` needs the `observabilityGitHubServer`, `observabilityGitHubOrg`, `observabilityGitHubRepo` and `observabilityBranch` settings. The otel app also takes:
 

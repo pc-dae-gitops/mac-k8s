@@ -1,0 +1,11 @@
+# Cluster settings, set from the cluster-config ConfigMap by the HelmRelease, see lib/addon-lib
+clusterType: k8s
+mirrorRegistry: ""
+imagePullSecretName: ""
+proxy: false
+certs: false
+dnsSuffix: ""
+# Ingress controller's cluster IP, the vault server resolves vault.<dnsSuffix> to it
+clusterIP: ""
+# Defaults to hostpath, or crc-csi-hostpath-provisioner on OpenShift Local
+storageClass: ""

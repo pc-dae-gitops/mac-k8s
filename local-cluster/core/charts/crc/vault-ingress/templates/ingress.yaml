@@ -13,9 +13,9 @@ spec:
   tls:
     - secretName: vault-tls
       hosts:
-        - vault.${dnsSuffix}
+        - vault.{{ .Values.dnsSuffix }}
   rules:
-    - host: vault.${dnsSuffix}
+    - host: vault.{{ .Values.dnsSuffix }}
       http:
         paths:
           - path: /

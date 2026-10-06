@@ -21,10 +21,10 @@ spec:
     crds: CreateReplace
   interval: 5m0s
   timeout: 5m
-  values:  
-    reloader:
-      deployment:
-        {{- if not (empty (default "" .Values.mirrorRegistry)) }}
-        image:
-          name: ${mirrorRegistry}/stakater/reloader
-        {{- end }}
+  values:
+    global:
+      {{- if .Values.mirrorRegistry }}
+      # Used with image.name, stakater/reloader
+      imageRegistry: {{ .Values.mirrorRegistry }}
+      {{- end }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}

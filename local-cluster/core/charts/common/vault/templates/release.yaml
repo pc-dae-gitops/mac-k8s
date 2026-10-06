@@ -1,3 +1,7 @@
+{{- /* Fully qualified images, crc short name aliases map hashicorp/vault and hashicorp/vault-k8s to
+registry.connect.redhat.com which does not publish the upstream tags */}}
+{{- $registry := include "addon.registry" (list . "docker.io") -}}
+{{- $storageClass := .Values.storageClass | default (ternary "crc-csi-hostpath-provisioner" "hostpath" (eq (include "addon.isOpenShift" .) "true")) -}}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -24,18 +28,38 @@ spec:
   values:
     global:
       enabled: true
-      {{- if not (empty (default "" .Values.mirrorRegistry)) }}
-      image:
-        registry: ${mirrorRegistry}
+      {{- if include "addon.isOpenShift" . }}
+      # Let the restricted-v2 SCC assign the uid and fsGroup
+      openshift: true
       {{- end }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}
     csi:
       enabled: true
+      image:
+        repository: {{ $registry }}/hashicorp/vault-csi-provider
+      agent:
+        image:
+          repository: {{ $registry }}/hashicorp/vault
+      {{- if include "addon.isOpenShift" . }}
+      # Register with the Red Hat secrets store csi driver, see core/charts/crc/csi
+      daemonSet:
+        providersDir: /var/run/secrets-store-csi-providers
+        securityContext:
+          container:
+            privileged: true
+      {{- end }}
     injector:
       enabled: true
+      image:
+        repository: {{ $registry }}/hashicorp/vault-k8s
+      agentImage:
+        repository: {{ $registry }}/hashicorp/vault
     server:
       enabled: true
+      image:
+        repository: {{ $registry }}/hashicorp/vault
       dataStorage:
-        storageClass: ${storageClass}
+        storageClass: {{ $storageClass }}
       serviceAccount:
         name: vault
       standalone:
@@ -49,49 +73,35 @@ spec:
           storage "file" {
             path = "/vault/data"
           }
+      {{- if .Values.clusterIP }}
+      hostAliases:
+        - ip: {{ .Values.clusterIP }}
+          hostnames:
+            - vault.{{ .Values.dnsSuffix }}
+      {{- end }}
+      # Trust the local CA, which issues the vault.{{ .Values.dnsSuffix }} certificate, setup.sh creates the local-ca ConfigMap
+      volumes:
+        - name: local-ca
+          configMap:
+            name: local-ca
+      volumeMounts:
+        - name: local-ca
+          mountPath: /etc/ssl/certs/local-ca.pem
+          subPath: CA.cer
+          readOnly: true
       ingress:
+        {{- if include "addon.isOpenShift" . }}
+        # Not rendered when global.openshift is true, see core/charts/crc/vault-ingress
+        enabled: false
+        {{- else }}
         enabled: true
+        ingressClassName: nginx
         annotations:
           cert-manager.io/cluster-issuer: local-ca-issuer
         tls:
           - secretName: vault-tls
             hosts:
-              - vault.${dnsSuffix}
+              - vault.{{ .Values.dnsSuffix }}
         hosts:
-          - host: vault.${dnsSuffix}
-  postRenderers:
-    - kustomize:
-        patches:
-        - target:
-            kind: StatefulSet
-            name: vault
-          patch: |-
-            - op: add
-              path: /spec/template/spec/hostAliases
-              value:
-                - ip: ${clusterIP}
-                  hostnames:
-                  - "vault.${dnsSuffix}"
-
-            - op: add
-              path: /spec/template/spec/volumes/-
-              value:
-                name: local-ca
-                configMap:
-                  name: local-ca
-
-            - op: add
-              path: /spec/template/spec/containers/0/volumeMounts/-
-              value:
-                name: local-ca
-                mountPath: /etc/ssl/certs/local-ca.pem
-                subPath: CA.cer
-                readOnly: false
-
-        - target:
-            kind: Ingress
-            name: vault
-          patch: |-
-            - op: add
-              path: /spec/ingressClassName
-              value: nginx
+          - host: vault.{{ .Values.dnsSuffix }}
+        {{- end }}

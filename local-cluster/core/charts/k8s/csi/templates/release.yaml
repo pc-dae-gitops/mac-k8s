@@ -1,3 +1,4 @@
+{{- $registry := include "addon.registry" (list . "registry.k8s.io") -}}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -23,7 +24,14 @@ spec:
   interval: 5m0s
   timeout: 5m
   values:
-    {{- if not (empty (default "" .Values.mirrorRegistry)) }}
-    image:
-      registry: ${mirrorRegistry}
-    {{- end }}
+    linux:
+      image:
+        repository: {{ $registry }}/csi-secrets-store/driver
+      crds:
+        image:
+          repository: {{ $registry }}/csi-secrets-store/driver-crds
+      registrarImage:
+        repository: {{ $registry }}/sig-storage/csi-node-driver-registrar
+      livenessProbeImage:
+        repository: {{ $registry }}/sig-storage/livenessprobe
+    imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 6 }}

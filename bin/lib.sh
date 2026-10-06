@@ -94,17 +94,26 @@ function route_crc_ca() {
   fi
 }
 
+# Image pull secret used by the core addons, IMAGE_PULL_SECRET_NAME, see cluster-config imagePullSecretName.
+# Uses the CORP_MIRROR credentials if CORP_MIRROR is set, otherwise the Docker Hub credentials
 function add_mirror_image_pull_secret() {
   local namespace="${1:-}"
   if [ -z "$namespace" ]; then
-    echo "usage: proxy_cert <namespace>"
+    echo "usage: add_mirror_image_pull_secret <namespace>"
     exit 1
   fi
-  if [[ -z "${CORP_MIRROR:-}" ]]; then
+  if [[ -z "${IMAGE_PULL_SECRET_NAME:-}" ]]; then
     return
   fi
-  local nameSpace="$1"
-  kubectl create secret -n $namespace docker-registry registry-image-pull --docker-server=https://${CORP_MIRROR} --docker-username=${CORP_MIRROR_USER} --docker-password=${CORP_MIRROR_TOKEN} --docker-email=${USER_EMAIL} --dry-run=client -o yaml | kubectl apply -f -
+  local server="https://index.docker.io/v1/"
+  local user="${DOCKERHUB_USER:-}"
+  local token="${DOCKERHUB_TOKEN:-}"
+  if [[ -n "${CORP_MIRROR:-}" ]]; then
+    server="https://${CORP_MIRROR}"
+    user="${CORP_MIRROR_USER:-}"
+    token="${CORP_MIRROR_TOKEN:-}"
+  fi
+  kubectl create secret -n $namespace docker-registry ${IMAGE_PULL_SECRET_NAME} --docker-server=${server} --docker-username=${user} --docker-password=${token} --docker-email=${USER_EMAIL} --dry-run=client -o yaml | kubectl apply -f -
 }
 
 function add_registry_image_pull_secret() {
@@ -132,10 +141,10 @@ function proxy_cert() {
   # Apply with envsubst, targeting the namespace
   export NAMESPACE="$namespace"
   if [ -f "${PROXY_FILE}" ]; then
-      envsubst $PROXY_FILE | kubectl apply -f -
+      envsubst < $PROXY_FILE | kubectl apply -f -
   fi
   if [ -f "${CERTS_FILE}" ]; then
-      envsubst $CERTS_FILE | kubectl apply -f -
+      envsubst < $CERTS_FILE | kubectl apply -f -
   fi
 }
 
@@ -331,18 +340,55 @@ function check_dns() {
   fi
 }
 
-# Cluster type specific helm values, used by HelmRelease valuesFrom ConfigMaps
-
-function cluster_values() {
-  local name="${1}"
-  local namespace="${2}"
-  local values_file="${3:-}"
-  local target="$target_path/config/${name}-values.yaml"
-  if [ -n "${values_file}" ]; then
-    kubectl create configmap ${name}-values -n ${namespace} --from-file=values.yaml="${values_file}" \
-      --dry-run=client -o yaml > "${target}"
-    kubectl apply -f "${target}"
-  else
-    rm -f "${target}"
+# Helm values for the flux-operator chart, the mirror, image pull secret, proxy and additional root CAs, see
+# local-cluster/core/charts/lib/addon-lib. The proxy-config and custom-ca ConfigMaps and the image pull secret must
+# already exist in flux-system.
+function flux_operator_values() {
+  local out_file="${1:-/tmp/flux-operator-values.yaml}"
+  : > "$out_file"
+  if [[ -n "${CORP_MIRROR:-}" || -n "${IMAGE_PULL_SECRET_NAME:-}" ]]; then
+    echo "image:" >> "$out_file"
   fi
+  if [[ -n "${CORP_MIRROR:-}" ]]; then
+    echo "  repository: ${CORP_MIRROR}/controlplaneio-fluxcd/flux-operator" >> "$out_file"
+  fi
+  if [[ -n "${IMAGE_PULL_SECRET_NAME:-}" ]]; then
+    printf '  pullSecrets:\n    - name: %s\n' "${IMAGE_PULL_SECRET_NAME}" >> "$out_file"
+  fi
+  if [[ "${PROXY:-false}" == "true" ]]; then
+    cat >> "$out_file" <<'VALUES'
+extraEnvs:
+  - name: HTTP_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: HTTP_PROXY
+  - name: HTTPS_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: HTTPS_PROXY
+  - name: PROXY_CONFIG_NO_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: NO_PROXY
+  - name: NO_PROXY
+    value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.cluster.local"
+VALUES
+  fi
+  if [[ "${CERTS:-false}" == "true" ]]; then
+    cat >> "$out_file" <<'VALUES'
+extraVolumes:
+  - name: custom-ca
+    configMap:
+      name: custom-ca
+extraVolumeMounts:
+  - name: custom-ca
+    mountPath: /etc/ssl/certs/custom-ca.crt
+    subPath: ca-bundle.crt
+    readOnly: true
+VALUES
+  fi
+  echo "$out_file"
 }

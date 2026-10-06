@@ -1,1 +1,3 @@
 .DS_Store
+local-cluster/core/charts/**/charts/
+local-cluster/core/charts/**/Chart.lock

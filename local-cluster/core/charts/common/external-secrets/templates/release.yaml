@@ -1,3 +1,4 @@
+{{- $repository := printf "%s/external-secrets/external-secrets" (include "addon.registry" (list . "oci.external-secrets.io")) -}}
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -22,13 +23,18 @@ spec:
   interval: 5m0s
   timeout: 5m
   values:
-    {{- if not (empty (default "" .Values.mirrorRegistry)) }}
     image:
-      registry: ${mirrorRegistry}
+      repository: {{ $repository }}
+    imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 6 }}
+    # The controller accesses the external secret stores
+    extraEnv: {{- include "addon.proxyEnv" . | nindent 6 }}
+    extraVolumes: {{- include "addon.caVolumes" . | nindent 6 }}
+    extraVolumeMounts: {{- include "addon.caVolumeMounts" . | nindent 6 }}
     webhook:
       image:
-        registry: ${mirrorRegistry}
+        repository: {{ $repository }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}
     certController:
       image:
-        registry: ${mirrorRegistry}
-    {{- end }}
+        repository: {{ $repository }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}

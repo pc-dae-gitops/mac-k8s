@@ -7,7 +7,7 @@ spec:
   chart:
     spec:
       chart: kyverno
-      version: 3.3.4
+      version: 3.9.1
       sourceRef:
         kind: HelmRepository
         name: kyverno
@@ -21,23 +21,43 @@ spec:
     crds: CreateReplace
   interval: 5m0s
   timeout: 5m
+  # Kyverno does not access the internet, no image verification or image data policies are used, so the proxy and
+  # custom-ca are not needed
   values:
-    installCRDs: true
-    {{- if not (empty (default "" .Values.mirrorRegistry)) }}
-    admissionController:
-      container:
-        image:
-          registry: ${mirrorRegistry}
-      initContainer:
-        image:
-          registry: ${mirrorRegistry}
-    backgroundController:
+    global:
+      {{- if .Values.mirrorRegistry }}
+      # Replaces the controllers' and crd migration hook's default registry, reg.kyverno.io
       image:
-        registry: ${mirrorRegistry}
-    cleanupController:
+        registry: {{ .Values.mirrorRegistry }}
+      {{- end }}
+      imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}
+    {{- if .Values.mirrorRegistry }}
+    # The webhook cleanup hooks and tests use ghcr.io/kyverno/readiness-checker, the registry is set explicitly so
+    # global.image.registry does not apply to them
+    webhooksCleanup:
       image:
-        registry: ${mirrorRegistry}
-    reportsController:
+        registry: {{ .Values.mirrorRegistry }}
+    test:
       image:
-        registry: ${mirrorRegistry}
+        registry: {{ .Values.mirrorRegistry }}
+    {{- end }}
+    {{- if include "addon.isOpenShift" . }}
+    # Do not block api requests if kyverno is unavailable, i.e. following crc stop/start
+    features:
+      forceFailurePolicyIgnore:
+        enabled: true
+    config:
+      # Keep kyverno away from OpenShift control plane namespaces
+      webhooks:
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+            - key: openshift.io/run-level
+              operator: DoesNotExist
+      resourceFiltersInclude:
+        - "[*/*,openshift,*]"
+        - "[*/*,openshift-*,*]"
     {{- end }}

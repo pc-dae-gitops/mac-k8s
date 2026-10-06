@@ -16,19 +16,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/common/kyverno
+      chart: ./local-cluster/core/charts/common/kyverno
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -48,19 +53,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/cert-manager
+      chart: ./local-cluster/core/charts/k8s/cert-manager
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -80,19 +90,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/nginx
+      chart: ./local-cluster/core/charts/k8s/nginx
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -114,19 +129,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/common/cert-config
+      chart: ./local-cluster/core/charts/common/cert-config
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -149,19 +169,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/ingress-cert
+      chart: ./local-cluster/core/charts/k8s/ingress-cert
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -184,19 +209,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/common/vault
+      chart: ./local-cluster/core/charts/common/vault
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -216,19 +246,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/csi
+      chart: ./local-cluster/core/charts/k8s/csi
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -248,19 +283,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/kube-state-metrics
+      chart: ./local-cluster/core/charts/k8s/kube-state-metrics
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -269,7 +309,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: kube-state-metrics
+    - name: k8s-kube-state-metrics
   interval: 5m0s
   timeout: 5m
   targetNamespace: flux-system
@@ -282,19 +322,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/node-exporter
+      chart: ./local-cluster/core/charts/k8s/node-exporter
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -314,18 +359,21 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/k8s/metrics-server
+      chart: ./local-cluster/core/charts/k8s/metrics-server
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
-
-
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"

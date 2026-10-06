@@ -9,5 +9,5 @@
   value:
     name: custom-ca
     mountPath: /etc/ssl/certs/custom-ca.crt
-    subPath: custom-ca.crt
+    subPath: ca-bundle.crt
     readOnly: true

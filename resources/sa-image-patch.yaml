@@ -4,4 +4,4 @@
     - op: add
       path: /imagePullSecrets
       value:
-        - name: mirror-image-pull
+        - name: ${IMAGE_PULL_SECRET_NAME}

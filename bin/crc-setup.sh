@@ -71,18 +71,10 @@ if [ "$current" != "true" ]; then
   oc wait clusteroperator/network --for=condition=Progressing=False --timeout=10m
 fi
 
-ensure_crc_trusted_ca
-
-# Cluster type specific helm values are not used, crc does not deploy ingress-nginx or metrics-server
-
-rm -f $target_path/config/ingress-nginx-values.yaml $target_path/config/metrics-server-values.yaml
-git add -A $target_path/config
-if [[ `git status --porcelain` ]]; then
-  git commit -m "remove cluster type specific helm values"
-  git pull
-  git push
+# Additional root CAs, i.e. Zscaler, resources/root-ca.crt in the cluster repository
+if [ "${CERTS:-false}" == "true" ]; then
+  ensure_crc_trusted_ca
 fi
-
 
 kubectl apply -f ${config_dir}/local-cluster/core/crc/flux-op/flux-operator.yaml
 

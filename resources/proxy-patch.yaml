@@ -1,0 +1,29 @@
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: HTTP_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: HTTP_PROXY
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: HTTPS_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: HTTPS_PROXY
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: PROXY_CONFIG_NO_PROXY
+    valueFrom:
+      configMapKeyRef:
+        name: proxy-config
+        key: NO_PROXY
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: NO_PROXY
+    value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.cluster.local"

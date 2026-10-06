@@ -1,4 +1,3 @@
-# 
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -6,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - ${clusterType}-vault${vaultIngress:=}
+    - name: core-vault
   interval: 5m0s
   timeout: 5m
   targetNamespace: flux-system
@@ -19,19 +18,24 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/common/external-secrets
+      chart: ./local-cluster/core/charts/common/external-secrets
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -51,18 +55,21 @@ spec:
       remediateLastFailure: true
   chart:
     spec:
-      chart: ./core/charts/common/reloader
+      chart: ./local-cluster/core/charts/common/reloader
+      reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
         namespace: flux-system
-  valuesFrom:
-    - kind: ConfigMap
-      name: cluster-config
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
   values:
-    global:
-      corpRegistry: ${mirrorRegistry:=}
-      proxy: ${proxy:=false}
-      certs: ${certs:=false}
-
-
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"

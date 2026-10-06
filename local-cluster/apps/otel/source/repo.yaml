@@ -5,7 +5,7 @@ metadata:
   namespace: ${nameSpace}
 spec:
   interval: 5m
-  url: https://${observabilityGitHubServer}/${observabilityGitHubOrg}/${observabilityGitHubRepo}.git
+  url: https://${observabilityGitHubServer:=${GitHubServer}}/${observabilityGitHubOrg}/${observabilityGitHubRepo}.git
   secretRef:
     name: observability-git-token
   ref:

@@ -1,0 +1,9 @@
+# Cluster settings, set from the cluster-config ConfigMap by the HelmRelease, see lib/addon-lib
+clusterType: k8s
+mirrorRegistry: ""
+imagePullSecretName: ""
+proxy: false
+certs: false
+dnsSuffix: ""
+# kind cluster, ingress-nginx binds the host ports kind maps to the host
+kindCluster: false

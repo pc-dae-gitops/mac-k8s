@@ -1,3 +1,8 @@
 vault
 flux-system
 ingress-nginx
+cert-manager
+kyverno
+external-secrets
+reloader
+kube-system

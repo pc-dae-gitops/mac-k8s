@@ -1,2 +1,6 @@
 vault
 flux-system
+cert-manager
+kyverno
+external-secrets
+reloader

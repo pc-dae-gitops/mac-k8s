@@ -1,4 +1,11 @@
 ---
+# Identity used by External Secrets to log in to Vault with Kubernetes auth
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+  namespace: ${nameSpace}
+---
 apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
 metadata:
@@ -11,9 +18,11 @@ spec:
       path: secrets
       version: v2
       auth:
-        tokenSecretRef:
-          name: "vault-token"
-          key: "vault_token"
+        kubernetes:
+          mountPath: kubernetes
+          role: ${nameSpace} # Created by deploy-apps.sh
+          serviceAccountRef:
+            name: vault-secrets
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -48,20 +57,3 @@ spec:
   dataFrom:
     - extract:
         key: github-repo-write-token
----
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: receiver-token
-  namespace: ${nameSpace}
-spec:
-  refreshInterval: 5m
-  secretStoreRef:
-    kind: SecretStore
-    name: vault
-  target:
-    name: receiver-token
-    creationPolicy: Owner
-  dataFrom:
-    - extract:
-        key: receiver-token

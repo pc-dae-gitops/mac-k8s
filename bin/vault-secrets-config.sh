@@ -53,12 +53,18 @@ EOF
 
 vault secrets enable $tls_skip  -path=secrets kv-v2
 
-vault auth enable kubernetes
+vault auth enable $tls_skip kubernetes
 
-echo "Creating Vault policy for application access..."
-vault policy write application-reader - <<EOF
-path "kv/data/application-properties/dev" {
+# Vault runs in-cluster, so it uses its own service account token and CA to call
+# the TokenReview API (the Vault Helm chart grants system:auth-delegator)
+vault write $tls_skip auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc"
+
+# Shared secrets read by every app namespace (local-cluster/templates/namespace/vault.yaml)
+vault policy write $tls_skip namespace-common - <<EOF
+path "secrets/data/github-repo-read-credentials" {
+  capabilities = ["read"]
+}
+path "secrets/data/github-repo-write-token" {
   capabilities = ["read"]
 }
 EOF
-
