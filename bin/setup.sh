@@ -76,9 +76,7 @@ if [ "$cluster_type" == "kind" ]; then
   kubectl config use-context "kind-${KIND_CLUSTER_NAME:-local}"
 fi
 
-if ! kubectl get ns | grep flux-system >/dev/null 2>&1; then
-  kubectl create namespace flux-system
-fi
+ensure_namespace flux-system
 
 check_dns
 
@@ -142,7 +140,7 @@ combined_ca_certs
 
 # Install CA Certificate secret so Cert Manager can issue certificates using our CA
 
-kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
+ensure_namespace cert-manager
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
@@ -160,7 +158,7 @@ namespace_list=$(local_or_global resources/${CLUSTER_TYPE:-k8s}-local-ca-namespa
 export CA_CERT="$(cat resources/CA.cer)"
 for nameSpace in $(cat $namespace_list); do
   export nameSpace
-  cat $(local_or_global resources/local-ca-ns.yaml) |envsubst | kubectl apply -f -
+  ensure_namespace ${nameSpace}
   kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
   kubectl apply -f /tmp/ca.yaml
   add_mirror_image_pull_secret  ${nameSpace}

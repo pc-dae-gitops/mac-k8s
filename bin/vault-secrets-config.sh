@@ -51,9 +51,14 @@ path "*" {
 }
 EOF
 
-vault secrets enable $tls_skip  -path=secrets kv-v2
+# Enabled once, setup.sh may be rerun
+if ! vault secrets list $tls_skip -format=json | jq -e '."secrets/"' >/dev/null; then
+  vault secrets enable $tls_skip  -path=secrets kv-v2
+fi
 
-vault auth enable $tls_skip kubernetes
+if ! vault auth list $tls_skip -format=json | jq -e '."kubernetes/"' >/dev/null; then
+  vault auth enable $tls_skip kubernetes
+fi
 
 # Vault runs in-cluster, so it uses its own service account token and CA to call
 # the TokenReview API (the Vault Helm chart grants system:auth-delegator)

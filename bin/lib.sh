@@ -414,3 +414,11 @@ function wait_for() {
   local remaining=$((end - SECONDS))
   kubectl wait --timeout=$(( remaining > 1 ? remaining : 1 ))s --for=condition=${condition} "${kind}" "${name}" "${ns_args[@]}"
 }
+
+# Create a namespace if it does not exist, kubectl apply warns about namespaces it did not create
+function ensure_namespace() {
+  local namespace="${1:?usage: ensure_namespace <namespace>}"
+  if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+    kubectl create namespace "${namespace}"
+  fi
+}
