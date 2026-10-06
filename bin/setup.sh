@@ -108,6 +108,14 @@ else
   flux_suffix="-mac"
 fi
 
+# Persistent volumes, i.e. the Flux source-controller and vault, use the cluster's default storage class
+export STORAGE_CLASS="$(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}')"
+if [ -z "${STORAGE_CLASS}" ]; then
+  echo "The cluster has no default storage class" >&2
+  exit 1
+fi
+echo "Storage class: ${STORAGE_CLASS}"
+
 export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
 echo "Cluster name: ${CLUSTER_NAME}"
 
@@ -196,8 +204,9 @@ fi
 envsubst < /tmp/flux-instance.yaml | kubectl apply -f -
 
 if [ "$wait" == "1" ]; then
+  # The operator installs the Flux CRDs and controllers, then creates the flux-system Kustomization
+  wait_for 600 Ready fluxinstance flux flux-system
   echo "Waiting for flux to flux-system Kustomization to be ready"
-  sleep 3
   flux reconcile kustomization flux-system
   kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-system
 fi
@@ -206,7 +215,7 @@ if [ "${CLUSTER_TYPE}" != "crc" ]; then
   if [ "$wait" == "1" ]; then
     # Wait for ingress controller to start
     echo "Waiting for ingress controller to start"
-    kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system nginx
+    wait_for 600 Ready helmreleases.helm.toolkit.fluxcd.io ingress-nginx ingress-nginx
     sleep 5
   fi
   export CLUSTER_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
@@ -241,7 +250,7 @@ done
 if [ "${CLUSTER_TYPE}" == "crc" ]; then
   # vault is initialized and unsealed via its route
   echo "Waiting for vault ingress"
-  kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system vault-ingress
+  wait_for 600 Ready helmreleases.helm.toolkit.fluxcd.io vault-ingress flux-system
 fi
 
 sleep 5

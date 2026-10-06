@@ -25,7 +25,7 @@ spec:
     networkPolicy: true
     domain: "cluster.local"
   storage:
-    class: "standard"
+    class: "${STORAGE_CLASS}"
     size: "10Gi"
   commonMetadata:
     labels:

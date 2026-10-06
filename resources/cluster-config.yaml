@@ -8,6 +8,7 @@ data:
   clusterType: ${CLUSTER_TYPE:-k8s}
   kindCluster: "${KIND_CLUSTER:-false}"
   kubeletInsecureTLS: "${KUBELET_INSECURE_TLS:-false}"
+  storageClass: ${STORAGE_CLASS}
   clusterName: ${CLUSTER_NAME}
   dnsSuffix: ${local_dns}
   clusterIP: ${CLUSTER_IP}

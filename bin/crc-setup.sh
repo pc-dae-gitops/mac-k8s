@@ -78,3 +78,6 @@ fi
 
 kubectl apply -f ${config_dir}/local-cluster/core/crc/flux-op/flux-operator.yaml
 
+
+# setup.sh creates the FluxInstance once OLM has installed the operator's CRDs
+wait_for 600 Established crd fluxinstances.fluxcd.controlplane.io

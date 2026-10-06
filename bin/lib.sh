@@ -392,3 +392,25 @@ VALUES
   fi
   echo "$out_file"
 }
+
+# Wait for a resource to be created, then for a condition, e.g. resources created by an operator or Flux
+# Usage: wait_for <timeout seconds> <condition> <kind> <name> [namespace]
+function wait_for() {
+  local timeout_secs="${1}" condition="${2}" kind="${3}" name="${4}" namespace="${5:-}"
+  local ns_args=()
+  if [ -n "${namespace}" ]; then
+    ns_args=(-n "${namespace}")
+  fi
+  local end=$((SECONDS + timeout_secs))
+  echo "Waiting for ${kind} ${namespace:+${namespace}/}${name} to be ${condition}"
+  # kubectl wait fails if the resource, or its kind, does not exist yet
+  until kubectl get "${kind}" "${name}" "${ns_args[@]}" >/dev/null 2>&1; do
+    if (( SECONDS >= end )); then
+      echo "Timed out waiting for ${kind} ${namespace:+${namespace}/}${name} to be created" >&2
+      return 1
+    fi
+    sleep 5
+  done
+  local remaining=$((end - SECONDS))
+  kubectl wait --timeout=$(( remaining > 1 ? remaining : 1 ))s --for=condition=${condition} "${kind}" "${name}" "${ns_args[@]}"
+}
