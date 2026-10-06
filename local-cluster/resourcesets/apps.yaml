@@ -43,14 +43,13 @@ spec:
       interval: 5m0s
       retryInterval: 30s
       timeout: 30s
-      dependsOn:
-        - name: flux
       path: ./local-cluster/templates/namespace
       prune: true
       wait: true
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
+        namespace: flux-system
       postBuild:
         substitute:
           nameSpace: << $ns >>
@@ -76,6 +75,7 @@ spec:
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
+        namespace: flux-system
       postBuild:
         substitute:
           nameSpace: << $ns >>
@@ -103,6 +103,7 @@ spec:
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
+        namespace: flux-system
       postBuild:
         substitute:
           nameSpace: << $ns >>
@@ -131,6 +132,7 @@ spec:
       sourceRef:
         kind: GitRepository
         name: flux-system
+        namespace: flux-system
       postBuild:
         substitute:
           nameSpace: << $ns >>
@@ -154,14 +156,19 @@ spec:
       retryInterval: 30s
       timeout: 30s
       dependsOn:
-        - name: app-<< if get $a "clusterConfig" >>cluster-<< end >>config-<< $app >>
+        - name: app-config-<< $app >>
           namespace: << $ns >>
+        <<- if get $a "clusterConfig" >>
+        - name: app-cluster-config-<< $app >>
+          namespace: << $ns >>
+        <<- end >>
       path: ./local-cluster/apps/<< $app >>
       prune: true
       wait: true
       sourceRef:
         kind: GitRepository
         name: mac-k8s-config
+        namespace: flux-system
       postBuild:
         substitute:
           nameSpace: << $ns >>
