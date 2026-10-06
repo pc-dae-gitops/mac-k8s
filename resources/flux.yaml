@@ -26,10 +26,8 @@ spec:
   sourceRef:
     kind: GitRepository
     name: mac-k8s-config
+  # dnsSuffix, storageClass and the other cluster settings are in the cluster-config ConfigMap
   postBuild:
-    substitute:
-      dnsSuffix: ${LOCAL_DNS}
-      storageClass: hostpath
     substituteFrom:
       - kind: ConfigMap
         name: cluster-config
