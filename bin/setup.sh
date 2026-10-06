@@ -119,6 +119,11 @@ echo "Storage class: ${STORAGE_CLASS}"
 export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
 echo "Cluster name: ${CLUSTER_NAME}"
 
+# The ingress controller's cluster IP is only known once Flux has deployed it, it is set further down. If the cluster
+# has been set up before use the current value, so cluster-config.yaml is not changed and committed if nothing else has
+if [ -z "${CLUSTER_IP:-}" ] && kubectl get configmap cluster-config -n flux-system >/dev/null 2>&1; then
+  export CLUSTER_IP="$(kubectl get configmap cluster-config -n flux-system -o jsonpath='{.data.clusterIP}')"
+fi
 
 export namespace=flux-system
 cat $(local_or_global resources/flux.yaml) | envsubst > local-cluster/flux/flux.yaml
