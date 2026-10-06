@@ -5,27 +5,27 @@ metadata:
   name: cluster-config
   namespace: ${namespace}
 data:
-  clusterType: ${CLUSTER_TYPE:-k8s}
+  clusterType: "${CLUSTER_TYPE:-k8s}"
   kindCluster: "${KIND_CLUSTER:-false}"
   kubeletInsecureTLS: "${KUBELET_INSECURE_TLS:-false}"
-  storageClass: ${STORAGE_CLASS}
-  clusterName: ${CLUSTER_NAME}
-  dnsSuffix: ${local_dns}
-  clusterIP: ${CLUSTER_IP}
-  scmType: github
-  registry: ${REGISTRY}
-  GitHubServer: ${GITHUB_SERVER}
-  GitHubOrg: ${GITHUB_MGMT_ORG}
-  GitHubRepo: ${GITHUB_MGMT_REPO}
-  GitHubBranch: ${GITHUB_MGMT_BRANCH}
-  globalGitHubOrg: ${GITHUB_GLOBAL_CONFIG_ORG}
-  globalGitHubRepo: ${GITHUB_GLOBAL_CONFIG_REPO}
-  globalGitHubBranch: ${global_config_branch}
-  userEmail: ${USER_EMAIL}
-  vault_url: ${VAULT_ADDR}
-  commitUser: ${GITHUB_USER}
-  mirrorRegistry: ${CORP_MIRROR:-}
-  proxy: ${PROXY:-false}
-  certs: ${CERTS:-false}
-  imagePullSecretName: ${IMAGE_PULL_SECRET_NAME:-}
-  vaultIngress: ${vaultIngress:=}
+  storageClass: "${STORAGE_CLASS}"
+  clusterName: "${CLUSTER_NAME}"
+  dnsSuffix: "${local_dns}"
+  clusterIP: "${CLUSTER_IP}"
+  scmType: "github"
+  registry: "${REGISTRY}"
+  GitHubServer: "${GITHUB_SERVER}"
+  GitHubOrg: "${GITHUB_MGMT_ORG}"
+  GitHubRepo: "${GITHUB_MGMT_REPO}"
+  GitHubBranch: "${GITHUB_MGMT_BRANCH}"
+  globalGitHubOrg: "${GITHUB_GLOBAL_CONFIG_ORG}"
+  globalGitHubRepo: "${GITHUB_GLOBAL_CONFIG_REPO}"
+  globalGitHubBranch: "${global_config_branch}"
+  userEmail: "${USER_EMAIL}"
+  vault_url: "${VAULT_ADDR}"
+  commitUser: "${GITHUB_USER}"
+  mirrorRegistry: "${CORP_MIRROR:-}"
+  proxy: "${PROXY:-false}"
+  certs: "${CERTS:-false}"
+  imagePullSecretName: "${IMAGE_PULL_SECRET_NAME:-}"
+  vaultIngress: "${vaultIngress:=}"
