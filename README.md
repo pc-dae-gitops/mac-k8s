@@ -23,6 +23,10 @@ Apps are described in `local-cluster/apps/inputs/apps.yaml` in the cluster repos
 
 Add them to `local-cluster/apps/inputs/apps.yaml` in the cluster repository, then run `deploy-apps.sh`, which writes each app's `secrets` to Vault. The examples' `sourceSecret` is `observability-git-token`, so each app needs its own copy of the observability repository token template at `resources/secrets/apps/<app>/observability-git-token.json`; `secrets.sh` loads it into Vault.
 
+### Corporate environments
+
+The app releases get the same corporate environment settings as the core addons, see `local-cluster/core/charts/lib/addon-lib`. The `local-cluster/templates/helm-release` HelmRelease passes `cluster-config`'s `mirrorRegistry`, `imagePullSecretName`, `proxy` and `certs` to every release as `global.corp` values. `deploy-apps.sh` creates the image pull secret and the `proxy-config` and `custom-ca` ConfigMaps in each app namespace, as `setup.sh` does for the core addon namespaces. Run it again after changing `proxy.yaml` or `root-ca.crt`. The observability charts use the settings as described in the observability repository's [obs-lib](https://github.com/pc-dae/observability/tree/develop/lib/obs-lib/README.md). Charts that don't use them ignore them.
+
 Release values can use the cluster-config settings, e.g. `${dnsSuffix}`, `${clusterName}`, `${clusterType}` and `${ingressClassName}`, `nginx`, or `openshift-default` on crc, and the app's `config` settings. The otel app's `config` takes:
 
 | Setting | Default | Purpose |

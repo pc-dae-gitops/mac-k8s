@@ -2,7 +2,8 @@
 
 # Utility to configure Vault for the apps deployed by the apps ResourceSet
 # The ResourceSet (local-cluster/resourcesets/apps.yaml) creates the namespaces and Flux Kustomizations,
-# this script writes each app's secrets to Vault and the Vault policies and roles used by External Secrets
+# this script writes each app's secrets to Vault and the Vault policies and roles used by External Secrets, and
+# creates the image pull secret, proxy-config and custom-ca ConfigMaps used by the apps in a corporate environment
 # Version: 2.0
 # Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
@@ -11,7 +12,7 @@ set -euo pipefail
 function usage()
 {
     echo "usage ${0} [--debug]" >&2
-    echo "This script will write app secrets to Vault and configure Vault Kubernetes auth for each app" >&2
+    echo "This script will write app secrets to Vault, configure Vault Kubernetes auth and add the corporate environment settings for each app" >&2
     echo "Apps and their secrets are read from local-cluster/apps/inputs/apps.yaml" >&2
     echo "  --debug: emmit debugging information" >&2
 }
@@ -62,6 +63,17 @@ function add_secrets()
     done <<< "${app_secrets}"
 }
 
+function add_corp_config()
+{
+    # The image pull secret, proxy-config and custom-ca ConfigMaps, if IMAGE_PULL_SECRET_NAME, PROXY or CERTS are set,
+    # as for the core addon namespaces, see setup.sh. The app releases get the cluster-config settings as global.corp
+    # values, see local-cluster/templates/helm-release. The namespace is created if the ResourceSet hasn't yet
+    # stdin is redirected so kubectl does not consume the app list being read by the while loop
+    ensure_namespace "${nameSpace}" </dev/null
+    add_mirror_image_pull_secret "${nameSpace}" </dev/null
+    proxy_cert "${nameSpace}" </dev/null
+}
+
 function add_vault_auth()
 {
     # Give the namespace's vault-secrets service account read access to its apps' secrets
@@ -104,12 +116,17 @@ fi
 
 export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
 
+# The custom-ca ConfigMap, setup.sh sets CLUSTER_TYPE, read it from the cluster when run on its own
+export CLUSTER_TYPE="${CLUSTER_TYPE:-$(kubectl get configmap cluster-config -n flux-system -o jsonpath='{.data.clusterType}')}"
+combined_ca_certs
+
 yq '.spec.defaultValues.apps[] | .name + " " + .namespace' "${apps_file}" | \
 while read -r APP_NAME NAMESPACE_NAME
 do
   echo "Configure Vault for: ${APP_NAME}, in namespace: ${NAMESPACE_NAME}"
   export nameSpace="${NAMESPACE_NAME}"
   export appName="${APP_NAME}"
+  add_corp_config
   add_secrets
   add_vault_auth
 done
