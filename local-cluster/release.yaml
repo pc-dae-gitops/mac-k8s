@@ -111,7 +111,6 @@ spec:
   retryInterval: 30s
   timeout: 5m
   dependsOn:
-    - name: flux
     - name: apps-inputs
   path: ./local-cluster/resourcesets
   prune: true
