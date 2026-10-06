@@ -5,6 +5,5 @@ metadata:
   name: arbitrary
 resources:
 - alerts.yaml
-- cluster-config.yaml
 - git-source.yaml
 - vault.yaml

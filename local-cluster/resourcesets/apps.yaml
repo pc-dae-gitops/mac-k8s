@@ -1,6 +1,6 @@
 # Generates the Flux objects for each app listed in the apps ResourceSetInputProvider,
 # which is in the configuration repository at local-cluster/apps/inputs/apps.yaml.
-# Per app: a Namespace, the local-ca ConfigMap and a chain of Flux Kustomizations,
+# Per app: a Namespace, the local-ca and cluster-config ConfigMaps and a chain of Flux Kustomizations,
 # namespace -> source -> config -> cluster-config (optional) -> app.
 apiVersion: fluxcd.controlplane.io/v1
 kind: ResourceSet
@@ -33,6 +33,16 @@ spec:
       namespace: << $ns >>
       annotations:
         fluxcd.controlplane.io/copyFrom: flux-system/local-ca
+    ---
+    # Used by the app's Kustomizations' postBuild substitutions, copied as is, Flux substitution would turn the
+    # "true" and "false" values into booleans, which ConfigMap data does not accept
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cluster-config
+      namespace: << $ns >>
+      annotations:
+        fluxcd.controlplane.io/copyFrom: flux-system/cluster-config
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
     kind: Kustomization
