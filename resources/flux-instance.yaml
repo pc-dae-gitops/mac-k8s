@@ -33,7 +33,8 @@ spec:
   sync:
     kind: GitRepository
     url: "https://${GITHUB_SERVER:-github.com}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}.git"
-    ref: "${GITHUB_MGMT_BRANCH:-main}"
+    # Full git reference, the GitRepository ref.name, a branch name alone cannot be resolved
+    ref: "refs/heads/${GITHUB_MGMT_BRANCH:-main}"
     path: "local-cluster/flux"
     pullSecret: "flux-system"
   kustomize:
