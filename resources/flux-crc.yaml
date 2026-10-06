@@ -1,7 +1,3 @@
-# Flux Kustomizations for OpenShift Local (crc) clusters, see bin/crc-setup.sh
-# The OpenShift router provides ingress, the hostpath provisioner provides storage and cluster monitoring
-# provides metrics-server and kube-state-metrics, so ingress-nginx, metrics-server and kube-state-metrics
-# are not deployed. cert-manager and the secrets store csi driver are deployed using Red Hat operators
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:

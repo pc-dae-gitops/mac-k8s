@@ -1,0 +1,68 @@
+# 
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-external-secrets
+  namespace: flux-system
+spec:
+  dependsOn:
+    - ${clusterType}-vault${vaultIngress:=}
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/common/external-secrets
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-reloader
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/common/reloader
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+
+

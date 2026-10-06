@@ -1,0 +1,7 @@
+- target:
+    kind: ServiceAccount
+  patch: |
+    - op: add
+      path: /imagePullSecrets
+      value:
+        - name: mirror-image-pull

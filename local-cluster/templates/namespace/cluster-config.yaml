@@ -20,3 +20,6 @@ data:
   userEmail: ${userEmail}
   vault_url: ${vault_url}
   commitUser: ${commitUser}
+  mirrorRegistry: ${CORP_MIRROR:-}
+  proxy: ${PROXY:-false}
+  certs: ${CERTS:-false}

@@ -1,0 +1,83 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+spec:
+  chart:
+    spec:
+      chart: ingress-nginx
+      version: 4.12.0
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+  rollback:
+    cleanupOnFail: false
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+    crds: CreateReplace
+  interval: 5m0s
+  timeout: 5m
+  # Cluster type specific values, e.g. kind clusters, created by setup.sh
+  valuesFrom:
+    - kind: ConfigMap
+      name: ingress-nginx-values
+      valuesKey: values.yaml
+      optional: true
+  values:
+    controller:
+      image:
+        registry: ${mirrorRegistry}
+      admissionWebhooks:
+        patch:
+          image:
+            registry: ${mirrorRegistry}
+      opentelemetry:
+        image:
+          registry: ${mirrorRegistry}
+      service:
+        annotations:
+          # service.beta.kubernetes.io/aws-load-balancer-type: external
+          # service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+          # service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+          external-dns.alpha.kubernetes.io/hostname: ${dnsSuffix}
+      ingressClassResource:
+        default: "true"
+      watchIngressWithoutClass: "true"
+      extraArgs:
+        # Wildcard certificate signed by the local CA, created by local-cluster/core/nginx-config.
+        # The controller uses its self-signed fake certificate until the secret exists.
+        default-ssl-certificate: ingress-nginx/default-ssl-certificate
+    # Returns a "Service not found" page for hosts and paths no ingress matches, configured in default-backend.yaml
+    defaultBackend:
+      enabled: true
+      image:
+        {{- if not (empty (default "" .Values.mirrorRegistry)) }}
+        registry: ${mirrorRegistry}
+        {{- end }}
+        image: nginxinc/nginx-unprivileged
+        tag: 1.29-alpine
+      port: 8080
+      extraVolumes:
+        - name: config
+          configMap:
+            name: default-backend
+        - name: tmp
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          memory: 64Mi

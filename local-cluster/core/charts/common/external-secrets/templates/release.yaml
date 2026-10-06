@@ -1,0 +1,34 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-secrets
+  namespace: external-secrets
+spec:
+  chart:
+    spec:
+      chart: external-secrets
+      version: 0.12.1
+      sourceRef:
+        kind: HelmRepository
+        name: external-secrets
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+    crds: CreateReplace
+  interval: 5m0s
+  timeout: 5m
+  values:
+    {{- if not (empty (default "" .Values.mirrorRegistry)) }}
+    image:
+      registry: ${mirrorRegistry}
+    webhook:
+      image:
+        registry: ${mirrorRegistry}
+    certController:
+      image:
+        registry: ${mirrorRegistry}
+    {{- end }}

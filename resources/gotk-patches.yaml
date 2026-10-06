@@ -1,5 +1,0 @@
-patchesStrategicMerge:
-  - helm-controller-certs-patch.yaml
-  - notification-controller-certs-patch.yaml
-  - source-controller-certs-patch.yaml
-  - image-reflector-controller-certs-patch.yaml

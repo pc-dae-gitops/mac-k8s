@@ -1,0 +1,5 @@
+apiVersion: v2
+name: openshift-cert-manager
+description: OpenShift Cert Manager
+version: 0.1.0
+appVersion: "0.1.0"

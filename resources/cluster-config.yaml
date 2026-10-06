@@ -21,3 +21,7 @@ data:
   userEmail: ${USER_EMAIL}
   vault_url: ${VAULT_ADDR}
   commitUser: ${GITHUB_USER}
+  mirrorRegistry: ${CORP_MIRROR:-}
+  proxy: ${PROXY:-false}
+  certs: ${CERTS:-false}
+  vaultIngress: ${vaultIngress:=}

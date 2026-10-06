@@ -1,0 +1,331 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/common/kyverno
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/cert-manager
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-nginx
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/nginx
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-config
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-manager
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/common/cert-config
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nginx-ingress
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-config
+    - name: k8s-nginx
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/ingress-cert
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-vault
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-config
+    - name: k8s-csi
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/common/vault
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-csi
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/csi
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-kube-state-metrics
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/kube-state-metrics
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-node-exporter
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-state-metrics
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/node-exporter
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-metric-server
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./core/charts/k8s/metrics-server
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+  values:
+    global:
+      corpRegistry: ${mirrorRegistry:=}
+      proxy: ${proxy:=false}
+      certs: ${certs:=false}
+
+

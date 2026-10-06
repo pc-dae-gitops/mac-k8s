@@ -112,6 +112,9 @@ metadata:
 data:
   vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
 EOF
+    proxy_cert ${NAMESPACE_NAME}
+    add_registry_image_pull_secret ${NAMESPACE_NAME}
+    add_mirror_image_pull_secret ${NAMESPACE_NAME}
     cat $(local_or_global resources/namespace-ks.yaml) | envsubst > local-cluster/namespaces/${nameSpace}-ks.yaml
     export dependsOnName="namespace-${nameSpace}"
     export dependsOnNs="flux-system"
