@@ -273,8 +273,6 @@ vault-secrets-config.sh $debug_str --tls-skip
 
 secrets.sh $debug_str --tls-skip
 
-kubectl rollout restart deployment -n external-secrets external-secrets
-
 if [ "${CLUSTER_TYPE}" == "crc" ]; then
   # Wait for the cluster logging operator to be installed
   kubectl wait --timeout=2m --for=jsonpath='{.status.phase}'=Active namespace/openshift-logging
