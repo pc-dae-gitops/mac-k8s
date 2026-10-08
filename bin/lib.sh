@@ -28,6 +28,14 @@ function local_or_global() {
     fi
 }
 
+# Configure the Vault CLI to trust the CA generated for this repository.
+function export_vault_cacert() {
+    local ca_file="${top_level}/resources/CA.cer"
+    if [ -f "${ca_file}" ]; then
+        export VAULT_CACERT="${ca_file}"
+    fi
+}
+
 # Cluster name used to tell clusters apart when several send telemetry to the same New Relic, Splunk,
 # VictoriaMetrics or Loki, e.g. kind-paul-carlton-pauls-macbook-air.
 # <cluster type>-<GitHub user>-<machine name>, lower case and limited to 63 characters. Set CLUSTER_NAME to override it.

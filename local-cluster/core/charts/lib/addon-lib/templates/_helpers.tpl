@@ -17,7 +17,12 @@ The addon namespaces are listed in resources/<cluster type>-local-ca-namespaces.
 */}}
 
 {{- define "addon.isOpenShift" -}}
-{{- if eq (toString .Values.clusterType) "crc" }}true{{ end -}}
+{{- if or (eq (toString .Values.clusterType) "crc") (eq (toString .Values.clusterType) "osc") }}true{{ end -}}
+{{- end -}}
+
+{{- /* Local cluster types (crc, k8s) where setup.sh creates the local-ca ConfigMap; osc (hosted OpenShift) does not have local-ca */}}
+{{- define "addon.isLocalCluster" -}}
+{{- if or (eq (toString .Values.clusterType) "crc") (eq (toString .Values.clusterType) "k8s") }}true{{ end -}}
 {{- end -}}
 
 {{- define "addon.proxyEnabled" -}}

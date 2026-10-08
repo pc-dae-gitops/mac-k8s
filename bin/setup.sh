@@ -23,7 +23,7 @@ function args()
   wait=1
   debug_str=""
   cluster_type=""
-  export CLUSTER_TYPE="k8s"
+  export CLUSTER_TYPE="${CLUSTER_TYPE:-k8s}"
   arg_list=( "$@" )
   arg_count=${#arg_list[@]}
   arg_index=0
@@ -57,17 +57,19 @@ if [ -n "$debug_str" ]; then
   env | sort
 fi
 
+if [ "$CLUSTER_TYPE" != "k8s" ]; then # not set Cluster Type
 # Create a CA Certificate, used by cert-manager to issue ingress certificates and as the kind cluster CA
 
-if [ -f resources/CA.cer ]; then
-  echo "Certificate Authority already exists"
-else
-  $SCRIPT_DIR/ca-cert.sh $debug_str
-  git add resources/CA.cer
-  if [[ `git status --porcelain` ]]; then
-    git commit -m "add CA certificate"
-    git pull
-    git push
+  if [ -f resources/CA.cer ]; then
+    echo "Certificate Authority already exists"
+  else
+    $SCRIPT_DIR/ca-cert.sh $debug_str
+    git add resources/CA.cer
+    if [[ `git status --porcelain` ]]; then
+      git commit -m "add CA certificate"
+      git pull
+      git push
+    fi
   fi
 fi
 
@@ -78,35 +80,42 @@ fi
 
 ensure_namespace flux-system
 
-check_dns
-
-# OpenShift Local (crc) clusters, detected from the current context's api server, are set up by crc-setup.sh
-
-if [ "$cluster_type" != "kind" ] && \
-   [ "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)" == "https://api.crc.testing:6443" ]; then
-  export CLUSTER_TYPE="crc"
-  $SCRIPT_DIR/crc-setup.sh $debug_str
-  flux_suffix="-crc"
-  export FLUX_CLUSTER_TYPE=openshift
-  export vaultIngress="-ingress"
-  # Ingress class for app ingresses, see cluster-config ingressClassName
-  export INGRESS_CLASS_NAME=openshift-default
+if [ "$CLUSTER_TYPE" != "k8s" ]; then # Explictly set Cluster Type
+  if [ -f $SCRIPT_DIR/${CLUSTER_TYPE}-setup.sh ]; then
+    $SCRIPT_DIR/${CLUSTER_TYPE}-setup.sh $debug_str
+  else
+    echo "Cluster type: ${CLUSTER_TYPE}, not supported"  >&2
+    exit 1
+  fi
 else
-  echo "Waiting for cluster to be ready"
-  kubectl wait --for=condition=Available  -n kube-system deployment coredns
-  export FLUX_CLUSTER_TYPE=kubernetes
-  export INGRESS_CLASS_NAME=nginx
-  # Cluster settings used by the core addon charts, see resources/cluster-config.yaml
-  # kind clusters run ingress-nginx on the control-plane node, binding the host ports kind maps to the host
-  if [[ "$(kubectl get nodes -o jsonpath='{.items[0].spec.providerID}')" == kind://* ]]; then
-    export KIND_CLUSTER=true
+  check_dns
+  if [ "$cluster_type" != "kind" ] && \
+    [ "$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)" == "https://api.crc.testing:6443" ]; then
+    # OpenShift Local (crc) clusters, detected from the current context's api server, are set up by crc-setup.sh
+    export CLUSTER_TYPE="crc"
+    $SCRIPT_DIR/crc-setup.sh $debug_str
+    export FLUX_CLUSTER_TYPE=openshift
+    export vaultIngress="-ingress"
+    # Ingress class for app ingresses, see cluster-config ingressClassName
+    export INGRESS_CLASS_NAME=openshift-default
+  else
+    # K8s
+    echo "Waiting for cluster to be ready"
+    kubectl wait --for=condition=Available  -n kube-system deployment coredns
+    export FLUX_CLUSTER_TYPE=kubernetes
+    export INGRESS_CLASS_NAME=nginx
   fi
-  # metrics-server can only verify kubelet serving certificates if they are signed by the cluster CA, see kind metrics extra
-  kubelet_config="$(kubectl get configmap -n kube-system kubelet-config -o jsonpath='{.data.kubelet}' 2>/dev/null || true)"
-  if [[ "${kubelet_config}" != *"serverTLSBootstrap: true"* ]]; then
-    export KUBELET_INSECURE_TLS=true
-  fi
-  flux_suffix="-mac"
+fi
+
+# Cluster settings used by the core addon charts, see resources/cluster-config.yaml
+# kind clusters run ingress-nginx on the control-plane node, binding the host ports kind maps to the host
+if [[ "$(kubectl get nodes -o jsonpath='{.items[0].spec.providerID}')" == kind://* ]]; then
+  export KIND_CLUSTER=true
+fi
+# metrics-server can only verify kubelet serving certificates if they are signed by the cluster CA, see kind metrics extra
+kubelet_config="$(kubectl get configmap -n kube-system kubelet-config -o jsonpath='{.data.kubelet}' 2>/dev/null || true)"
+if [[ "${kubelet_config}" != *"serverTLSBootstrap: true"* ]]; then
+  export KUBELET_INSECURE_TLS=true
 fi
 
 # Persistent volumes, i.e. the Flux source-controller and vault, use the cluster's default storage class
@@ -141,10 +150,11 @@ b64w=""
 
 combined_ca_certs
 
-# Install CA Certificate secret so Cert Manager can issue certificates using our CA
+if [[ "$CLUSTER_TYPE" == "k8s" || "$CLUSTER_TYPE" == "crc" ]]; then # local Cluster Type
+  # Install CA Certificate secret so Cert Manager can issue certificates using our CA
 
-ensure_namespace cert-manager
-kubectl apply -f - <<EOF
+  ensure_namespace cert-manager
+  kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -154,21 +164,23 @@ data:
   tls.crt: $(base64 ${b64w} -i resources/CA.cer)
   tls.key: $(base64 ${b64w} -i resources/CA.key)
 EOF
-
-# Add CA Certificates to namespaces where it is required
+  export CA_CERT="$(cat resources/CA.cer)"
+fi
 
 namespace_list=$(local_or_global resources/${CLUSTER_TYPE:-k8s}-local-ca-namespaces.txt)
-export CA_CERT="$(cat resources/CA.cer)"
 for nameSpace in $(cat $namespace_list); do
   export nameSpace
   ensure_namespace ${nameSpace}
-  kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
-  kubectl apply -f /tmp/ca.yaml
+  if [[ "$CLUSTER_TYPE" == "k8s" || "$CLUSTER_TYPE" == "crc" ]]; then # local Cluster Type
+    # Add CA Certificates to namespaces where it is required
+    kubectl create configmap local-ca -n ${nameSpace} --from-file=resources/CA.cer --dry-run=client -o yaml >/tmp/ca.yaml
+    kubectl apply -f /tmp/ca.yaml
+  fi
   add_mirror_image_pull_secret  ${nameSpace}
   proxy_cert  ${nameSpace}
 done
 
-if [ "${CLUSTER_TYPE}" == "crc" ]; then
+if [[ "${CLUSTER_TYPE}" == "crc" || "${CLUSTER_TYPE}" == "osc" ]]; then
   kubectl label namespace vault --overwrite pod-security.kubernetes.io/enforce=privileged \
   pod-security.kubernetes.io/audit=privileged pod-security.kubernetes.io/warn=privileged
 fi
@@ -185,7 +197,7 @@ data:
 EOF
 
 # OpenShift Local (crc) installs the flux operator from OperatorHub, see crc-setup.sh
-if [ "${CLUSTER_TYPE}" != "crc" ]; then
+if [[ "${CLUSTER_TYPE}" != "crc" && "${CLUSTER_TYPE}" != "osc" ]]; then
   # Installed once the flux-system ConfigMaps and image pull secret it uses exist, the chart is pulled from the mirror
   # if CORP_MIRROR is set
   if [[ -n "${CORP_MIRROR:-}" && -n "${CORP_MIRROR_USER:-}" ]]; then
@@ -217,7 +229,7 @@ if [ "$wait" == "1" ]; then
   kubectl wait --timeout=5m --for=condition=Ready kustomizations.kustomize.toolkit.fluxcd.io -n flux-system flux-system
 fi
 
-if [ "${CLUSTER_TYPE}" != "crc" ]; then
+if [[ "${CLUSTER_TYPE}" != "crc" && "${CLUSTER_TYPE}" != "osc" ]]; then
   if [ "$wait" == "1" ]; then
     # Wait for ingress controller to start
     echo "Waiting for ingress controller to start"
@@ -253,7 +265,7 @@ while ( true ); do
   sleep 5
 done
 
-if [ "${CLUSTER_TYPE}" == "crc" ]; then
+if [[ "${CLUSTER_TYPE}" == "crc" || "${CLUSTER_TYPE}" == "osc" ]]; then
   # vault is initialized and unsealed via its route
   echo "Waiting for vault ingress"
   wait_for 600 Ready helmreleases.helm.toolkit.fluxcd.io vault-ingress flux-system
@@ -279,7 +291,7 @@ vault-secrets-config.sh $debug_str --tls-skip
 
 secrets.sh $debug_str --tls-skip
 
-if [ "${CLUSTER_TYPE}" == "crc" ]; then
+if [[ "${CLUSTER_TYPE}" == "crc" ]]; then
   # Wait for the cluster logging operator to be installed
   kubectl wait --timeout=2m --for=jsonpath='{.status.phase}'=Active namespace/openshift-logging
   kubectl wait --timeout=5m --for=jsonpath='{.status.state}'=AtLatestKnown subscription.operators.coreos.com/cluster-logging -n openshift-logging

@@ -39,8 +39,10 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
+source $SCRIPT_DIR/lib.sh
 
 export VAULT_ADDR="https://vault.${local_dns}"
+export_vault_cacert
 
 if [ "$(vault status --format=json $tls_skip | jq -r '.sealed')" == "false" ]; then
   echo "Vault already unsealed"

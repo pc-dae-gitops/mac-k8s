@@ -1,4 +1,4 @@
-{{- /* Fully qualified images, crc short name aliases map hashicorp/vault and hashicorp/vault-k8s to
+{{- /* Fully qualified image, crc short name aliases map hashicorp/vault to
 registry.connect.redhat.com which does not publish the upstream tags */}}
 {{- $registry := include "addon.registry" (list . "docker.io") -}}
 {{- $storageClass := .Values.storageClass | default (ternary "crc-csi-hostpath-provisioner" "hostpath" (eq (include "addon.isOpenShift" .) "true")) -}}
@@ -34,26 +34,9 @@ spec:
       {{- end }}
       imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 8 }}
     csi:
-      enabled: true
-      image:
-        repository: {{ $registry }}/hashicorp/vault-csi-provider
-      agent:
-        image:
-          repository: {{ $registry }}/hashicorp/vault
-      {{- if include "addon.isOpenShift" . }}
-      # Register with the Red Hat secrets store csi driver, see core/charts/crc/csi
-      daemonSet:
-        providersDir: /var/run/secrets-store-csi-providers
-        securityContext:
-          container:
-            privileged: true
-      {{- end }}
+      enabled: false
     injector:
-      enabled: true
-      image:
-        repository: {{ $registry }}/hashicorp/vault-k8s
-      agentImage:
-        repository: {{ $registry }}/hashicorp/vault
+      enabled: false
     server:
       enabled: true
       image:
@@ -79,7 +62,8 @@ spec:
           hostnames:
             - vault.{{ .Values.dnsSuffix }}
       {{- end }}
-      # Trust the local CA, which issues the vault.{{ .Values.dnsSuffix }} certificate, setup.sh creates the local-ca ConfigMap
+      {{- if include "addon.isLocalCluster" . }}
+      # Trust the local CA, which issues the vault.{{ .Values.dnsSuffix }} certificate, setup.sh creates the local-ca ConfigMap (local clusters only: crc, k8s)
       volumes:
         - name: local-ca
           configMap:
@@ -89,6 +73,7 @@ spec:
           mountPath: /etc/ssl/certs/local-ca.pem
           subPath: CA.cer
           readOnly: true
+      {{- end }}
       ingress:
         {{- if include "addon.isOpenShift" . }}
         # Not rendered when global.openshift is true, see core/charts/crc/vault-ingress

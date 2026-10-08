@@ -101,6 +101,7 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
+source $SCRIPT_DIR/lib.sh
 check_mgmt_branch
 
 if [ -n "$debug_str" ]; then
@@ -115,6 +116,7 @@ if [ ! -f "${apps_file}" ]; then
 fi
 
 export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
+export_vault_cacert
 
 # The custom-ca ConfigMap, setup.sh sets CLUSTER_TYPE, read it from the cluster when run on its own
 export CLUSTER_TYPE="${CLUSTER_TYPE:-$(kubectl get configmap cluster-config -n flux-system -o jsonpath='{.data.clusterType}')}"
