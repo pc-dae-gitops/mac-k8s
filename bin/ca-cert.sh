@@ -53,7 +53,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 else
   if ! sudo -k -n -l security >/dev/null 2>&1; then
     echo "Password required for sudo security command"
-    read -rp "Admin username to trust the CA cert [amin]: " admin_user
+    read -rp "Admin username to trust the CA cert [admin]: " admin_user
     admin_user=${admin_user:-admin}
     su "${admin_user}" -c "sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain $PWD/CA.cer"
   else

@@ -57,7 +57,7 @@ if [ -n "$debug_str" ]; then
   env | sort
 fi
 
-if [ "$CLUSTER_TYPE" != "k8s" ]; then # not set Cluster Type
+if [ "$CLUSTER_TYPE" == "k8s" ]; then # not set Cluster Type so local cluster
 # Create a CA Certificate, used by cert-manager to issue ingress certificates and as the kind cluster CA
 
   if [ -f resources/CA.cer ]; then
@@ -70,6 +70,13 @@ if [ "$CLUSTER_TYPE" != "k8s" ]; then # not set Cluster Type
       git pull
       git push
     fi
+  fi
+  # cert-manager fails to issue certificates if CA.key is not CA.cer's private key, CA.key is not in git
+  if [ "$(openssl x509 -in resources/CA.cer -noout -pubkey | openssl sha256)" != \
+       "$(openssl pkey -in resources/CA.key -pubout 2>/dev/null | openssl sha256)" ]; then
+    echo "resources/CA.key is missing or is not the private key of resources/CA.cer" >&2
+    echo "Restore the CA.key matching CA.cer, or remove CA.cer to create a new CA with ca-cert.sh" >&2
+    exit 1
   fi
 fi
 
