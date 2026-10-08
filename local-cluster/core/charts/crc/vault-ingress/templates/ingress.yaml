@@ -1,5 +1,6 @@
 # The vault chart does not create an Ingress when global.openshift is true, OpenShift converts
-# this Ingress to an edge terminated Route using the certificate issued by cert-manager
+# this Ingress to a re-encrypt Route using the certificate issued by cert-manager. The router verifies
+# vault's certificate, issued by the OpenShift service CA, without a destination CA certificate
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,7 +8,7 @@ metadata:
   namespace: vault
   annotations:
     cert-manager.io/cluster-issuer: local-ca-issuer
-    route.openshift.io/termination: edge
+    route.openshift.io/termination: reencrypt
 spec:
   ingressClassName: openshift-default
   tls:

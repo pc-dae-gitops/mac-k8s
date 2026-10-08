@@ -142,6 +142,17 @@ if [ -z "${CLUSTER_IP:-}" ] && kubectl get configmap cluster-config -n flux-syst
   export CLUSTER_IP="$(kubectl get configmap cluster-config -n flux-system -o jsonpath='{.data.clusterIP}')"
 fi
 
+# ConfigMap holding the CA that issued vault's server certificate, trusted by the External Secrets SecretStores,
+# see local-cluster/templates/namespace/vault.yaml. OpenShift creates the openshift-service-ca.crt ConfigMap in
+# every namespace, setup.sh creates local-ca in the addon namespaces and the apps ResourceSet copies it
+if [[ "${CLUSTER_TYPE}" == "crc" || "${CLUSTER_TYPE}" == "osc" ]]; then
+  export VAULT_CA_CONFIGMAP=openshift-service-ca.crt
+  export VAULT_CA_KEY=service-ca.crt
+else
+  export VAULT_CA_CONFIGMAP=local-ca
+  export VAULT_CA_KEY=CA.cer
+fi
+
 export namespace=flux-system
 cat $(local_or_global resources/flux.yaml) | envsubst > local-cluster/flux/flux.yaml
 cat $(local_or_global resources/cluster-config.yaml) | envsubst > local-cluster/flux/cluster-config.yaml
@@ -284,15 +295,8 @@ vault-init.sh $debug_str --tls-skip
 vault-unseal.sh $debug_str --tls-skip
 
 export VAULT_TOKEN="$(jq -r '.root_token' resources/.vault-init.json)"
-  kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: vault-token
-  namespace: vault
-data:
-  vault_token: $(echo -n "$VAULT_TOKEN" | base64 ${b64w})
-EOF
+# External Secrets uses Kubernetes auth, the root token is no longer stored in the cluster
+kubectl delete secret vault-token -n vault --ignore-not-found
 
 vault-secrets-config.sh $debug_str --tls-skip
 

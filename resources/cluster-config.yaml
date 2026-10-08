@@ -24,6 +24,8 @@ data:
   globalGitHubBranch: "${global_config_branch}"
   userEmail: "${USER_EMAIL}"
   vault_url: "${VAULT_ADDR}"
+  vaultCaConfigMap: "${VAULT_CA_CONFIGMAP}"
+  vaultCaKey: "${VAULT_CA_KEY}"
   commitUser: "${GITHUB_USER}"
   mirrorRegistry: "${CORP_MIRROR:-}"
   proxy: "${PROXY:-false}"

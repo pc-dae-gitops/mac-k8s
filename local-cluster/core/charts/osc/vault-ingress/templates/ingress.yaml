@@ -1,3 +1,5 @@
+# Re-encrypt to vault, the router verifies vault's certificate, issued by the OpenShift service CA, without a
+# destination CA certificate. The route is served the cluster's default (wildcard) ingress certificate
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -12,4 +14,4 @@ spec:
   port:
     targetPort: 8200
   tls:
-    termination: edge
+    termination: reencrypt

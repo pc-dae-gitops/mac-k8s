@@ -75,3 +75,19 @@ path "secrets/data/github-repo-write-token" {
   capabilities = ["read"]
 }
 EOF
+
+# Secrets read by the flux-system SecretStore (local-cluster/secrets/vault-store.yaml), for the
+# ExternalSecrets in local-cluster/bases/flux/secrets.yaml
+vault policy write $tls_skip flux-system - <<EOF2
+path "secrets/data/github-repo-write-token" {
+  capabilities = ["read"]
+}
+path "secrets/data/receiver-token" {
+  capabilities = ["read"]
+}
+EOF2
+vault write $tls_skip auth/kubernetes/role/flux-system \
+  bound_service_account_names=vault-secrets \
+  bound_service_account_namespaces=flux-system \
+  policies=flux-system \
+  ttl=1h

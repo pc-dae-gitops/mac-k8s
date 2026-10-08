@@ -14,7 +14,12 @@ metadata:
 spec:
   provider:
     vault:
-      server: http://vault.vault.svc.cluster.local:8200 # https://vault.${dnsSuffix} 
+      server: https://vault.vault.svc:8200
+      # CA that issued vault's server certificate, the local CA, or the OpenShift service CA on OpenShift, see setup.sh
+      caProvider:
+        type: ConfigMap
+        name: ${vaultCaConfigMap:=local-ca}
+        key: ${vaultCaKey:=CA.cer}
       path: secrets
       version: v2
       auth:
