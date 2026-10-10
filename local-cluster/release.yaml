@@ -118,3 +118,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: mac-k8s-config
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-config

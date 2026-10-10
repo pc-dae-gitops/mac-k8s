@@ -2,7 +2,7 @@
 
 # Utility for creating CA certificate
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 
 set -euo pipefail
@@ -46,19 +46,6 @@ openssl genrsa -out CA.key 4096
 # keyUsage is required by strict X.509 verification, e.g. Python 3.13 based containers such as the k8s-sidecar
 openssl req -x509 -new -nodes -key CA.key -subj "/CN=paulc" -days 3650 -config ${SCRIPT_DIR}/../resources/openssl.cnf -extensions v3_ca -out CA.cer
 
-if [[ "$OSTYPE" == "linux"* ]]; then
-  sudo cp CA.cer /usr/local/share/ca-certificates/CA.crt
-  sudo chmod 644 /usr/local/share/ca-certificates/CA.crt
-  sudo update-ca-certificates
-else
-  if ! sudo -k -n -l security >/dev/null 2>&1; then
-    echo "Password required for sudo security command"
-    read -rp "Admin username to trust the CA cert [admin]: " admin_user
-    admin_user=${admin_user:-admin}
-    su "${admin_user}" -c "sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain $PWD/CA.cer"
-  else
-    sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain $PWD/CA.cer
-  fi
-fi
+trust_ca_cert "${top_level}/resources/CA.cer"
 
 popd >/dev/null

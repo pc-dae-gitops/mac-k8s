@@ -2,7 +2,7 @@
 
 # Check user is in subdirectory of their GitOps Cluster repository
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 top_level=$(git rev-parse --show-toplevel)
 if [ -f ${top_level}/.envrc ]; then

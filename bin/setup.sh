@@ -2,7 +2,7 @@
 
 # Utility setting local kubernetes cluster
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 set -euo pipefail
 
@@ -93,6 +93,14 @@ if [ "$CLUSTER_TYPE" != "k8s" ]; then # Explictly set Cluster Type
   else
     echo "Cluster type: ${CLUSTER_TYPE}, not supported"  >&2
     exit 1
+  fi
+  if [ "$CLUSTER_TYPE" == "osc" ]; then
+    # OpenShift hosted (osc): render flux with cluster.type openshift so the operator omits the
+    # hardcoded fsGroup:1337 securityContext that restricted-v2 rejects (see resources/flux-instance.yaml)
+    export FLUX_CLUSTER_TYPE=openshift
+    export vaultIngress="-ingress"
+    # Ingress class for app ingresses, see cluster-config ingressClassName
+    export INGRESS_CLASS_NAME=openshift-default
   fi
 else
   check_dns

@@ -1,7 +1,7 @@
 # Generates the Flux objects for each app listed in the apps ResourceSetInputProvider,
 # which is in the configuration repository at local-cluster/apps/inputs/apps.yaml.
 # Per app:
-# - the Namespace, the local-ca and cluster-config ConfigMaps, copied from flux-system, and the <app>-config ConfigMap
+# - the Namespace, the ${vaultCaConfigMap} and cluster-config ConfigMaps, copied from flux-system, and the <app>-config ConfigMap
 #   with the app's config, used by the app's Kustomizations' postBuild substitutions
 # - an ExternalSecret for each of the app's secrets and its sourceSecret, deploy-apps.sh writes them to Vault at
 #   apps/<app>/<secret name>
@@ -45,10 +45,10 @@ spec:
     apiVersion: v1
     kind: ConfigMap
     metadata:
-      name: local-ca
+      name: ${vaultCaConfigMap}
       namespace: << $ns >>
       annotations:
-        fluxcd.controlplane.io/copyFrom: flux-system/local-ca
+        fluxcd.controlplane.io/copyFrom: flux-system/${vaultCaConfigMap}
     ---
     # Used by the app's Kustomizations' postBuild substitutions, copied as is, Flux substitution would turn the
     # "true" and "false" values into booleans, which ConfigMap data does not accept

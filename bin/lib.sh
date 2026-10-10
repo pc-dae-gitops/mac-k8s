@@ -2,7 +2,7 @@
 
 # Library of functions
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -33,6 +33,51 @@ function export_vault_cacert() {
     local ca_file="${top_level}/resources/CA.cer"
     if [ -f "${ca_file}" ]; then
         export VAULT_CACERT="${ca_file}"
+    fi
+}
+
+# Trust a CA certificate on the local machine so tools (vault CLI, browser, curl) verify
+# TLS served by a cert signed by it. macOS: System keychain; Linux: /usr/local/share/ca-certificates.
+# Usage: trust_ca_cert <absolute-path-to-ca-cert-pem>
+function trust_ca_cert() {
+    local ca_cert="${1:?usage: trust_ca_cert <ca-cert-path>}"
+    if [ ! -f "${ca_cert}" ]; then
+        echo "trust_ca_cert: CA certificate not found: ${ca_cert}" >&2
+        return 1
+    fi
+    if [[ "$OSTYPE" == "linux"* ]]; then
+        # Idempotency guard (rotation-safe byte compare): skip if the exact cert is already installed
+        local dest=/usr/local/share/ca-certificates/CA.crt
+        if [ -f "${dest}" ] && cmp -s "${ca_cert}" "${dest}"; then
+            echo "trust_ca_cert: already trusted (byte-identical): ${dest}"
+            return 0
+        fi
+        sudo cp "${ca_cert}" "${dest}"
+        sudo chmod 644 "${dest}"
+        sudo update-ca-certificates
+    else
+        # Idempotency guard (presence by exact SHA-256; no sudo so no password prompt): skip if already trusted.
+        # Matches the full fingerprint, so a rotated CN=root-ca (same CN, new key) is correctly re-imported.
+        local input_sha kc_dump
+        input_sha=$(openssl x509 -in "${ca_cert}" -noout -fingerprint -sha256 2>/dev/null \
+                    | sed 's/^.*=//; s/://g' | tr 'a-f' 'A-F')
+        if [ -z "${input_sha}" ]; then
+            echo "trust_ca_cert: could not compute SHA-256 of ${ca_cert}" >&2
+            return 1
+        fi
+        kc_dump=$(security find-certificate -a -Z /Library/Keychains/System.keychain 2>/dev/null)
+        if printf '%s' "${kc_dump}" | grep -iq "SHA-256 hash: ${input_sha}$"; then
+            echo "trust_ca_cert: already trusted (SHA-256 ${input_sha} present in System keychain); skipping import"
+            return 0
+        fi
+        if ! sudo -k -n -l security >/dev/null 2>&1; then
+            echo "Password required for sudo security command"
+            read -rp "Admin username to trust the CA cert [admin]: " admin_user
+            admin_user=${admin_user:-admin}
+            su "${admin_user}" -c "sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain ${ca_cert}"
+        else
+            sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain "${ca_cert}"
+        fi
     fi
 }
 
@@ -152,19 +197,16 @@ function proxy_cert() {
       envsubst < $PROXY_FILE | kubectl apply -f -
   fi
   if [ -f "${CERTS_FILE}" ]; then
-      envsubst < $CERTS_FILE | kubectl apply -f -
+      envsubst < $CERTS_FILE | kubectl apply --server-side --force-conflicts -f -
   fi
 }
 
 function combined_ca_certs() {
   rm -f /tmp/combined-certs.pem >/dev/null 2>&1 || true
 
-  if [ ! -f ./resources/root-ca.crt ]; then
-    rm -rf /tmp/combined-certs.yaml
-    return
+  if [ -f ./resources/root-ca.crt ]; then
+    cat ./resources/root-ca.crt >> /tmp/combined-certs.pem
   fi
-
-  cat ./resources/root-ca.crt >> /tmp/combined-certs.pem
 
   if [ "$CLUSTER_TYPE" == "crc" ]; then
     route_crc_ca
@@ -173,8 +215,57 @@ function combined_ca_certs() {
   fi
 
   if [ "$CLUSTER_TYPE" == "osc" ]; then
-    route_wildcard_ca
+    # The corporate proxy re-signs external TLS with the self-signed corp Root CA.
+    # source-controller (and the addons) already trust the public Mozilla roots via their
+    # baked-in bundle, so custom-ca only needs the corp Root CA itself. Pull it from
+    # openshift-config/ldap-ca, which holds a single clean copy of the corp Root CA.
+    # (user-ca-bundle contains the same CA duplicated plus ~146 public roots, ~235KB, which
+    # overflows the kubectl last-applied-configuration annotation limit on apply.)
+    local osc_ca
+    osc_ca="$(kubectl -n openshift-config get configmap ldap-ca -o jsonpath='{.data.ca\.crt}' 2>/dev/null)"
+    if [[ "$osc_ca" != *"BEGIN CERTIFICATE"* ]]; then
+      echo "ERROR: combined_ca_certs: openshift-config/ldap-ca (key ca.crt) is missing or contains no certificate." >&2
+      echo "       On osc, CERTS=true mounts this bundle into addon pods; refusing to build an empty custom-ca ConfigMap." >&2
+      exit 1
+    fi
+    printf '%s\n' "$osc_ca" >> /tmp/combined-certs.pem
     echo "" >> /tmp/combined-certs.pem
+
+    # resources/CA.cer must let the LOCAL vault CLI (VAULT_CACERT) and the mac keychain/browser
+    # trust the vault ROUTE. The Route leaf (CN=openshift-ingress) is signed by the cluster-internal
+    # self-signed CN=root-ca, which lives in kube-root-ca.crt (NOT ldap-ca/corp Root CA, which
+    # re-signs the proxy, not the Route). Extract the single self-signed CN=root-ca cert.
+    rm -f /tmp/_rootca-*.pem >/dev/null 2>&1 || true
+    kubectl -n openshift-config-managed get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' \
+      | awk 'BEGIN{n=0} /BEGIN CERTIFICATE/{n++; f="/tmp/_rootca-"n".pem"} n>0{print > f} /END CERTIFICATE/{close(f)}'
+    local rootca_file=""
+    for f in /tmp/_rootca-*.pem; do
+      [ -e "$f" ] || break
+      local subj issuer
+      subj="$(openssl x509 -in "$f" -noout -subject 2>/dev/null)"
+      issuer="$(openssl x509 -in "$f" -noout -issuer 2>/dev/null)"
+      if [[ "${subj#subject=}" == "${issuer#issuer=}" && "$subj" == *"CN=root-ca"* ]]; then
+        rootca_file="$f"
+        break
+      fi
+    done
+    if [[ -z "$rootca_file" ]]; then
+      echo "ERROR: combined_ca_certs: no self-signed CN=root-ca found in kube-root-ca.crt (openshift-config-managed)." >&2
+      echo "       resources/CA.cer would not trust the vault Route; aborting." >&2
+      rm -f /tmp/_rootca-*.pem >/dev/null 2>&1 || true
+      exit 1
+    fi
+    cp "$rootca_file" "${top_level}/resources/CA.cer"
+    rm -f /tmp/_rootca-*.pem >/dev/null 2>&1 || true
+    git add resources/CA.cer
+    if [[ `git status --porcelain` ]]; then
+      git commit -m "add CA certificate"
+      git pull
+      git push
+    fi
+
+    trust_ca_cert "${top_level}/resources/CA.cer"
+    export_vault_cacert
   fi
 
 #   if [ -n "${POC_DNS_SUFFIX:-}" ]; then
@@ -382,7 +473,7 @@ extraEnvs:
         name: proxy-config
         key: NO_PROXY
   - name: NO_PROXY
-    value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.cluster.local"
+    value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local,.svc.cluster.local.,.cluster.local."
 VALUES
   fi
   if [[ "${CERTS:-false}" == "true" ]]; then

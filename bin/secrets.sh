@@ -2,7 +2,7 @@
 
 # Utility for creating secrets in Vault
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 set -euo pipefail
 

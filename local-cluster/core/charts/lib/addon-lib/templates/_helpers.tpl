@@ -75,7 +75,7 @@ Proxy environment variables, NO_PROXY is extended with the kubernetes api server
       name: proxy-config
       key: NO_PROXY
 - name: NO_PROXY
-  value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.cluster.local"
+  value: "$(PROXY_CONFIG_NO_PROXY),$(KUBERNETES_SERVICE_HOST),localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local,.svc.cluster.local.,.cluster.local."
 {{- else -}}
 []
 {{- end -}}

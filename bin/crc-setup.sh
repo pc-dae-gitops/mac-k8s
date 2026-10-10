@@ -2,7 +2,7 @@
 
 # Utility setting up an OpenShift Local (crc) cluster, the crc equivalent of setup.sh
 # Version: 1.0
-# Author: Paul Carlton (mailto:paul.carlton@tesco.com)
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
 
 set -euo pipefail
 
@@ -63,9 +63,9 @@ oc wait --timeout=10m --for=condition=Available clusteroperator/dns clusteropera
 
 # Route egress traffic via the host network stack rather than directly from OVN-Kubernetes
 
-current="$(oc get network.operator/cluster -o jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.gatewayConfig.routingViaHost}' 2>/dev/null || true)"
+current="$(oc get network.operator/cluster -o jsonpath='{.spec.defaultNetwork.ovnKubernecorpnfig.gatewayConfig.routingViaHost}' 2>/dev/null || true)"
 if [ "$current" != "true" ]; then
-  oc patch network.operator/cluster --type=merge -p '{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig":{"routingViaHost":true}}}}}'
+  oc patch network.operator/cluster --type=merge -p '{"spec":{"defaultNetwork":{"ovnKubernecorpnfig":{"gatewayConfig":{"routingViaHost":true}}}}}'
   echo "Waiting for network operator to apply routingViaHost"
   sleep 10
   oc wait clusteroperator/network --for=condition=Progressing=False --timeout=10m
