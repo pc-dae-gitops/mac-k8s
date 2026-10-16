@@ -1,0 +1,8 @@
+# Cluster settings, set from the cluster-config ConfigMap by the HelmRelease, see lib/addon-lib
+clusterType: k8s
+mirrorRegistry: ""
+imagePullSecretName: ""
+proxy: false
+certs: false
+# Kubelet serving certificates are not signed by the cluster CA
+kubeletInsecureTLS: false

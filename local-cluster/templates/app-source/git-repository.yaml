@@ -1,0 +1,12 @@
+# An app's source repository, applied by the app's app-source Kustomization, see local-cluster/resourcesets/apps.yaml.
+# The source settings default to this repository, the ResourceSet adds the secretRef if the app has a sourceSecret
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: ${appName}
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  url: https://${sourceGitServer:=${GitHubServer}}/${sourceGitHubOrg:=${globalGitHubOrg}}/${sourceGitHubRepo:=${globalGitHubRepo}}.git
+  ref:
+    branch: ${sourceBranch:=${globalGitHubBranch}}

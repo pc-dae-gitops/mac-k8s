@@ -1,0 +1,5 @@
+apiVersion: v2
+name: openshift-scc
+description: OpenShift Security Constraints
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,67 @@
+# One of an app's Helm releases, applied by the app's release Kustomization, see local-cluster/resourcesets/apps.yaml.
+# The chart is in the app's source repository. The ResourceSet patches in the release's valuesFiles and values, before
+# the cluster-config and app config substitutions, so values can use them, e.g. grafana.${dnsSuffix}.
+# The cluster type, k8s, eks, crc or osc, from the cluster-config ConfigMap, is passed as the clusterType value, the
+# observability charts use it for cluster type specific resources, e.g. OpenShift Routes on osc. The corporate
+# environment settings, mirrorRegistry, imagePullSecretName, proxy and certs from the cluster-config ConfigMap, are
+# passed as global.corp values, see the observability repository's lib/obs-lib. Charts that don't use them ignore them.
+# Values precedence, lowest first: the chart's values.yaml, the valuesFiles in order, the clusterType and global.corp
+# values, the <release>-values ConfigMap, e.g. from local-cluster/apps/config/<app> in the cluster repository, and the values in apps.yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${releaseName}
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: ${releaseTimeout:=5m}
+  targetNamespace: ${nameSpace}
+  releaseName: ${releaseName}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ${chart}
+      reconcileStrategy: Revision
+      ignoreMissingValuesFiles: true
+      sourceRef:
+        kind: GitRepository
+        name: ${appName}
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: clusterType
+      targetPath: clusterType
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: mirrorRegistry
+      targetPath: global.corp.mirrorRegistry
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: imagePullSecretName
+      targetPath: global.corp.imagePullSecretName
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: proxy
+      targetPath: global.corp.proxy
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: certs
+      targetPath: global.corp.certs
+      optional: true
+    - kind: ConfigMap
+      name: ${releaseName}-values
+      valuesKey: values.yaml
+      optional: true

@@ -1,0 +1,24 @@
+{{- if not (include "addon.isOpenShift" .) }}
+# Vault's server certificate, issued by local-ca-issuer, created by cert-config, which core-vault depends on.
+# Used by the ingress and the External Secrets SecretStores, see local-cluster/templates/namespace/vault.yaml.
+# On OpenShift the service CA issues it, see the server.service annotation in release.yaml.
+# Vault reads the certificate when it starts, it is not reloaded when renewed, so it is valid for a year
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-server-tls
+  namespace: vault
+spec:
+  secretName: vault-server-tls
+  duration: 8760h
+  renewBefore: 720h
+  issuerRef:
+    kind: ClusterIssuer
+    name: local-ca-issuer
+  commonName: vault.vault.svc
+  dnsNames:
+    - vault
+    - vault.vault
+    - vault.vault.svc
+    - vault.vault.svc.cluster.local
+{{- end }}

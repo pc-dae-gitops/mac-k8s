@@ -1,0 +1,10 @@
+# Local image registry, push images to localhost:${KIND_REGISTRY_PORT} and use them in the cluster with the same name
+cluster:
+  containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+allNodes:
+  extraMounts:
+  - hostPath: ${KIND_CERTS_DIR}
+    containerPath: /etc/containerd/certs.d

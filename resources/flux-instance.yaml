@@ -1,0 +1,56 @@
+apiVersion: fluxcd.controlplane.io/v1
+kind: FluxInstance
+metadata:
+  name: flux
+  namespace: flux-system
+  annotations:
+    fluxcd.controlplane.io/reconcile: "enabled"
+    fluxcd.controlplane.io/reconcileEvery: "1h"
+    fluxcd.controlplane.io/reconcileTimeout: "5m"
+spec:
+  distribution:
+    version: "2.9.x"
+    registry: "${CORP_MIRROR:-ghcr.io}/fluxcd"
+  components:
+    - source-controller
+    - kustomize-controller
+    - helm-controller
+    - notification-controller
+    - image-reflector-controller
+    - image-automation-controller
+  cluster:
+    type: ${FLUX_CLUSTER_TYPE}
+    # medium runs 10 concurrent reconciles per controller. The core addon HelmReleases wait for the HelmReleases their
+    # charts deploy, so with small's 5 they can occupy every helm-controller worker and the inner releases never run
+    size: medium
+    multitenant: false
+    networkPolicy: true
+    domain: "cluster.local"
+  storage:
+    class: "${STORAGE_CLASS}"
+    size: "10Gi"
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: flux
+  sync:
+    kind: GitRepository
+    url: "https://${GITHUB_SERVER:-github.com}/${GITHUB_MGMT_ORG}/${GITHUB_MGMT_REPO}.git"
+    # Full git reference, the GitRepository ref.name, a branch name alone cannot be resolved
+    ref: "refs/heads/${GITHUB_MGMT_BRANCH:-main}"
+    # The cluster repository folder, local-cluster, or target-cluster for a target cluster
+    path: "${FLUX_SYNC_PATH}"
+    pullSecret: "flux-system"
+  kustomize:
+    patches:
+      - target:
+          kind: Deployment
+        patch: |
+          - op: replace
+            path: /spec/template/spec/nodeSelector
+            value:
+              kubernetes.io/os: linux
+          - op: add
+            path: /spec/template/spec/tolerations
+            value:
+              - key: "CriticalAddonsOnly"
+                operator: "Exists"

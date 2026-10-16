@@ -1,0 +1,384 @@
+# Core addons for EKS clusters, deployed by the core-eks Kustomization, see local-cluster/release.yaml. EKS clusters use
+# the k8s and common charts, the cluster type specific settings, e.g. ingress-nginx's network load balancer, are
+# handled by the charts based on the cluster-config ConfigMap's clusterType. The cluster's own EKS addons provide
+# networking, CoreDNS, kube-proxy and EBS storage, see terraform/aws/eks
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/common/kyverno
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/cert-manager
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eks-nginx
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/nginx
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    ingressSourceRanges: "${ingressSourceRanges:=}"
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-config
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-manager
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/common/cert-config
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nginx-ingress
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-config
+    - name: eks-nginx
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/ingress-cert
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-vault
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: cert-config
+    - name: eks-csi
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/common/vault
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eks-csi
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/csi
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eks-kube-state-metrics
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/kube-state-metrics
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eks-node-exporter
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: eks-kube-state-metrics
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/node-exporter
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eks-metric-server
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/k8s/metrics-server
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"

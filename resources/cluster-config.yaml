@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-config
+  namespace: ${namespace}
+data:
+  clusterType: "${CLUSTER_TYPE:-k8s}"
+  kindCluster: "${KIND_CLUSTER:-false}"
+  kubeletInsecureTLS: "${KUBELET_INSECURE_TLS:-false}"
+  storageClass: "${STORAGE_CLASS}"
+  ingressClassName: "${INGRESS_CLASS_NAME}"
+  clusterName: "${CLUSTER_NAME}"
+  dnsSuffix: "${local_dns}"
+  clusterIP: "${CLUSTER_IP}"
+  scmType: "github"
+  registry: "${REGISTRY}"
+  GitHubServer: "${GITHUB_SERVER}"
+  GitHubOrg: "${GITHUB_MGMT_ORG}"
+  GitHubRepo: "${GITHUB_MGMT_REPO}"
+  GitHubBranch: "${GITHUB_MGMT_BRANCH}"
+  globalGitHubOrg: "${GITHUB_GLOBAL_CONFIG_ORG}"
+  globalGitHubRepo: "${GITHUB_GLOBAL_CONFIG_REPO}"
+  globalGitHubBranch: "${global_config_branch}"
+  userEmail: "${USER_EMAIL}"
+  vault_url: "${VAULT_ADDR}"
+  vaultCaConfigMap: "${VAULT_CA_CONFIGMAP}"
+  vaultCaKey: "${VAULT_CA_KEY}"
+  commitUser: "${GITHUB_USER}"
+  mirrorRegistry: "${CORP_MIRROR:-}"
+  proxy: "${PROXY:-false}"
+  certs: "${CERTS:-false}"
+  imagePullSecretName: "${IMAGE_PULL_SECRET_NAME:-}"
+  vaultIngress: "${vaultIngress:=}"
+  # Cluster repository folder with the cluster's apps, see local-cluster/release.yaml and local-cluster/resourcesets
+  targetPath: "${target_path}"
+  # Comma separated CIDR blocks that can reach the ingress load balancer on cloud clusters, e.g. eks
+  ingressSourceRanges: "${INGRESS_SOURCE_RANGES:-}"
+  # Ingress domain of the target cluster created by setup.sh --target, e.g. eks, see target_dns_suffix in bin/lib.sh.
+  # Used by the cluster's apps, e.g. otel sends the kind cluster's telemetry to the EKS cluster's VictoriaMetrics and
+  # Loki. Empty until the target cluster's ingress domain is set
+  targetDnsSuffix: "${TARGET_DNS_SUFFIX:-}"

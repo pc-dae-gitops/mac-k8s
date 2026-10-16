@@ -1,0 +1,64 @@
+---
+# Identity used by External Secrets to log in to Vault with Kubernetes auth
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-secrets
+  namespace: ${nameSpace}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: vault
+  namespace: ${nameSpace}
+spec:
+  provider:
+    vault:
+      server: https://vault.vault.svc:8200
+      # CA that issued vault's server certificate, the local CA, or the OpenShift service CA on OpenShift, see setup.sh
+      caProvider:
+        type: ConfigMap
+        name: ${vaultCaConfigMap:=local-ca}
+        key: ${vaultCaKey:=CA.cer}
+      path: secrets
+      version: v2
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: ${nameSpace} # Created by deploy-apps.sh
+          serviceAccountRef:
+            name: vault-secrets
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: github-repo-read-credentials
+  namespace: ${nameSpace}
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: SecretStore
+    name: vault
+  target:
+    name: github-repo-read-credentials
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: github-repo-read-credentials
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: git-write-token
+  namespace: ${nameSpace}
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: SecretStore
+    name: vault
+  target:
+    name: github-repo-write-token
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: github-repo-write-token

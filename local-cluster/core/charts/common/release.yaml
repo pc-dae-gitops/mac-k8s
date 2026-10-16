@@ -1,0 +1,75 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-external-secrets
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: core-vault
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/common/external-secrets
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: core-reloader
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  targetNamespace: flux-system
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ./local-cluster/core/charts/common/reloader
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: mac-k8s-config
+        namespace: flux-system
+  # Cluster settings from the cluster-config ConfigMap, substituted by the core Kustomizations, see lib/addon-lib
+  values:
+    clusterType: ${clusterType}
+    dnsSuffix: "${dnsSuffix}"
+    clusterIP: "${clusterIP:=}"
+    storageClass: "${storageClass:=}"
+    mirrorRegistry: "${mirrorRegistry:=}"
+    imagePullSecretName: "${imagePullSecretName:=}"
+    proxy: "${proxy:=false}"
+    certs: "${certs:=false}"
+    kindCluster: "${kindCluster:=false}"
+    kubeletInsecureTLS: "${kubeletInsecureTLS:=false}"

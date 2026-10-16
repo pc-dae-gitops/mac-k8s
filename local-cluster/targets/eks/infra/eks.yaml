@@ -1,0 +1,64 @@
+# The EKS cluster and its VPC, from terraform/aws/eks in this repository
+# Deployed by the eks-infra Kustomization, which setup.sh --target eks renders from resources/target-deploy.yaml. Its
+# postBuild substitutes the target-config ConfigMap's settings, see resources/eks-config.yaml
+# The state is in the S3 bucket and DynamoDB lock table created by bin/aws-tf-backend.sh
+# The runner uses the AWS credentials in the aws-credentials secret, see aws-credentials.yaml
+# Deleting this object destroys the AWS resources, see bin/eks-teardown.sh
+apiVersion: infra.contrib.fluxcd.io/v1alpha2
+kind: Terraform
+metadata:
+  name: eks
+  namespace: flux-system
+spec:
+  interval: 30m
+  retryInterval: 2m
+  approvePlan: auto
+  # The plan is written to the tfplan-default-eks ConfigMap, the runner pod's logs only have the apply output, see
+  # kubectl get cm tfplan-default-eks -n flux-system -o jsonpath='{.data.tfplan}'
+  storeReadablePlan: human
+  destroyResourcesOnDeletion: true
+  path: ./terraform/aws/eks
+  sourceRef:
+    kind: GitRepository
+    name: mac-k8s-config
+    namespace: flux-system
+  backendConfig:
+    customConfiguration: |
+      backend "s3" {
+        bucket         = "${tf_state_bucket}"
+        key            = "${cluster_name}/eks/terraform.tfstate"
+        region         = "${region}"
+        dynamodb_table = "${tf_lock_table}"
+        encrypt        = true
+      }
+  varsFrom:
+    - kind: ConfigMap
+      name: target-config
+      varsKeys:
+        - region
+        - cluster_name
+        - kubernetes_version
+        - vpc_cidr
+        - node_instance_types
+        - node_min_size
+        - node_max_size
+        - node_desired_size
+        - node_ami_release_version
+        - endpoint_public_access_cidrs
+        - owner_email
+        - tf_state_bucket
+        - tf_lock_table
+  # Used to connect to the cluster, i.e. by setup.sh to add it to the kubeconfig
+  writeOutputsToSecret:
+    name: eks-outputs
+    outputs:
+      - region
+      - cluster_name
+      - cluster_endpoint
+      - cluster_certificate_authority_data
+      - vpc_id
+  runnerPodTemplate:
+    spec:
+      envFrom:
+        - secretRef:
+            name: aws-credentials

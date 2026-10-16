@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+# Utility for configuring vault kv secrets engine
+# Version: 1.0
+# Author: Paul Carlton (mailto:paul.carlton@dae.mn)
+
+set -euo pipefail
+
+function usage()
+{
+    echo "usage ${0} [--debug] " >&2
+    echo "This script will configure vault" >&2
+}
+
+function args() {
+
+  arg_list=( "$@" )
+  arg_count=${#arg_list[@]}
+  arg_index=0
+  tls_skip=""
+  while (( arg_index < arg_count )); do
+    case "${arg_list[${arg_index}]}" in
+          "--tls-skip") tls_skip="-tls-skip-verify";;
+          "--debug") set -x;;
+               "-h") usage; exit;;
+           "--help") usage; exit;;
+               "-?") usage; exit;;
+        *) if [ "${arg_list[${arg_index}]:0:2}" == "--" ];then
+               echo "invalid argument: ${arg_list[${arg_index}]}" >&2
+               usage; exit
+           fi;
+           break;;
+    esac
+    (( arg_index+=1 ))
+  done
+}
+
+args "$@"
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source $SCRIPT_DIR/envs.sh
+source $SCRIPT_DIR/lib.sh
+
+export VAULT_ADDR="https://vault.${local_dns}"
+export_vault_cacert
+export VAULT_TOKEN="$(jq -r '.root_token' ${VAULT_INIT_FILE})"
+
+set +e
+
+vault policy write $tls_skip admin - << EOF
+path "*" {
+  capabilities = ["create", "read", "update", "patch", "delete", "list", "sudo"]
+}
+EOF
+
+# Enabled once, setup.sh may be rerun
+if ! vault secrets list $tls_skip -format=json | jq -e '."secrets/"' >/dev/null; then
+  vault secrets enable $tls_skip  -path=secrets kv-v2
+fi
+
+if ! vault auth list $tls_skip -format=json | jq -e '."kubernetes/"' >/dev/null; then
+  vault auth enable $tls_skip kubernetes
+fi
+
+# Vault runs in-cluster, so it uses its own service account token and CA to call
+# the TokenReview API (the Vault Helm chart grants system:auth-delegator)
+vault write $tls_skip auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc"
+
+# Shared secrets read by every app namespace (local-cluster/templates/namespace/vault.yaml)
+vault policy write $tls_skip namespace-common - <<EOF
+path "secrets/data/github-repo-read-credentials" {
+  capabilities = ["read"]
+}
+path "secrets/data/github-repo-write-token" {
+  capabilities = ["read"]
+}
+EOF
+
+# Secrets read by the flux-system SecretStore (local-cluster/secrets/vault-store.yaml), for the
+# ExternalSecrets in local-cluster/bases/flux/secrets.yaml
+vault policy write $tls_skip flux-system - <<EOF2
+path "secrets/data/github-repo-write-token" {
+  capabilities = ["read"]
+}
+path "secrets/data/receiver-token" {
+  capabilities = ["read"]
+}
+# Target cluster credentials, see aws-creds.sh and local-cluster/targets/eks/infra/aws-credentials.yaml
+path "secrets/data/aws-credentials" {
+  capabilities = ["read"]
+}
+EOF2
+vault write $tls_skip auth/kubernetes/role/flux-system \
+  bound_service_account_names=vault-secrets \
+  bound_service_account_namespaces=flux-system \
+  policies=flux-system \
+  ttl=1h

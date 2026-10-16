@@ -1,0 +1,44 @@
+# tofu-controller, reconciles the Terraform objects that create target clusters, see ../<target type>/infra
+# Deployed by the tofu-controller Kustomization, which setup.sh --target renders from resources/target-deploy.yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: tofu-controller
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://flux-iac.github.io/tofu-controller
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tofu-controller
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  timeout: 5m
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: tofu-controller
+      version: 0.16.5
+      sourceRef:
+        kind: HelmRepository
+        name: tofu-controller
+  values:
+    # The AWS primitive modules package isn't used
+    awsPackage:
+      install: false
+    # Runner pods run in the Terraform object's namespace
+    runner:
+      serviceAccount:
+        allowedNamespaces:
+          - flux-system

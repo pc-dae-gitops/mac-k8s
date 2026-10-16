@@ -1,0 +1,133 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+spec:
+  chart:
+    spec:
+      chart: ingress-nginx
+      version: 4.12.0
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+  rollback:
+    cleanupOnFail: false
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+    crds: CreateReplace
+  interval: 5m0s
+  timeout: 5m
+  values:
+    {{- if .Values.mirrorRegistry }}
+    # Used by the controller, admission webhook patch and opentelemetry images
+    global:
+      image:
+        registry: {{ .Values.mirrorRegistry }}
+    {{- end }}
+    imagePullSecrets: {{- include "addon.imagePullSecrets" . | nindent 6 }}
+    controller:
+      {{- if eq .Values.clusterType "eks" }}
+      # Two replicas in different availability zones, so the ingress keeps working while a node is replaced. With more
+      # than one replica the chart adds a PodDisruptionBudget, minAvailable 1, so draining a node leaves one running
+      replicaCount: 2
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+              app.kubernetes.io/instance: ingress-nginx
+              app.kubernetes.io/component: controller
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+              app.kubernetes.io/instance: ingress-nginx
+              app.kubernetes.io/component: controller
+      {{- end }}
+      {{- if eq (toString .Values.kindCluster) "true" }}
+      # Runs the controller on the control-plane node, binding host ports 80/443 which kind maps to the host
+      hostPort:
+        enabled: true
+      nodeSelector:
+        ingress-ready: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Equal
+          effect: NoSchedule
+      publishService:
+        enabled: false
+      # Host ports prevent a new pod starting on the node until the old one has stopped
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 0
+          maxUnavailable: 1
+      {{- end }}
+      service:
+        {{- if eq (toString .Values.kindCluster) "true" }}
+        type: NodePort
+        {{- end }}
+        {{- if eq .Values.clusterType "eks" }}
+        {{- with .Values.ingressSourceRanges }}
+        # Only these CIDR blocks can reach the internet facing load balancer
+        loadBalancerSourceRanges:
+          {{- range splitList "," . }}
+          - {{ trim . }}
+          {{- end }}
+        {{- end }}
+        {{- end }}
+        annotations:
+          {{- if eq .Values.clusterType "eks" }}
+          # A network load balancer, created by EKS, its IP addresses don't change, see setup.sh's ingress domain
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb
+          {{- end }}
+          # service.beta.kubernetes.io/aws-load-balancer-type: external
+          # service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+          # service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+          external-dns.alpha.kubernetes.io/hostname: {{ .Values.dnsSuffix }}
+      ingressClassResource:
+        default: "true"
+      watchIngressWithoutClass: "true"
+      extraArgs:
+        # Wildcard certificate signed by the local CA, created by local-cluster/core/nginx-config.
+        # The controller uses its self-signed fake certificate until the secret exists.
+        default-ssl-certificate: ingress-nginx/default-ssl-certificate
+        {{- if eq (toString .Values.kindCluster) "true" }}
+        publish-status-address: localhost
+        {{- end }}
+    # Returns a "Service not found" page for hosts and paths no ingress matches, configured in default-backend.yaml
+    defaultBackend:
+      enabled: true
+      image:
+        registry: {{ include "addon.registry" (list . "docker.io") }}
+        image: nginxinc/nginx-unprivileged
+        tag: 1.29-alpine
+      port: 8080
+      extraVolumes:
+        - name: config
+          configMap:
+            name: default-backend
+        - name: tmp
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          memory: 64Mi

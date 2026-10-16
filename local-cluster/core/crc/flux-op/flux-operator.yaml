@@ -1,0 +1,25 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  targetNamespaces:
+    - flux-system
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: flux-operator
+  namespace: flux-system
+spec:
+  channel: stable
+  name: flux-operator
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+  config:
+    env:
+      - name: DEFAULT_SERVICE_ACCOUNT
+        value: "flux-operator"
+      - name: REPORTING_INTERVAL
+        value: "30s"

@@ -1,0 +1,24 @@
+# EKS target cluster settings, rendered to local-cluster/flux/eks-config.yaml in the cluster repository by
+# setup.sh --target eks. Used by the eks Terraform object's varsFrom, the keys are the Terraform variable names, see
+# terraform/aws/eks/variables.tf, and its backend configuration. Values are strings, lists are comma separated
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: target-config
+  namespace: flux-system
+data:
+  region: "${AWS_REGION}"
+  cluster_name: "${EKS_CLUSTER_NAME}"
+  kubernetes_version: "${EKS_K8S_VERSION}"
+  vpc_cidr: "${EKS_VPC_CIDR}"
+  node_instance_types: "${EKS_NODE_INSTANCE_TYPES}"
+  node_min_size: "${EKS_NODE_MIN}"
+  node_max_size: "${EKS_NODE_MAX}"
+  node_desired_size: "${EKS_NODE_DESIRED}"
+  # The latest when the cluster was created, kept when setup.sh --target eks is run again. Change it and commit and
+  # push this file to replace the nodes with a newer AMI, see eks-ami.sh
+  node_ami_release_version: "${EKS_NODE_AMI_RELEASE}"
+  endpoint_public_access_cidrs: "${EKS_PUBLIC_ACCESS_CIDRS}"
+  owner_email: "${USER_EMAIL}"
+  tf_state_bucket: "${TF_STATE_BUCKET}"
+  tf_lock_table: "${TF_LOCK_TABLE}"

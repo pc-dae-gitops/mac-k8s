@@ -1,0 +1,45 @@
+# Flux Kustomizations that create a target cluster, rendered to local-cluster/flux/target-deploy.yaml in the cluster
+# repository by setup.sh --target <type>, with TARGET_TYPE set to the target type. tofu-controller creates the target
+# cluster from the Terraform object in local-cluster/targets/<type>/infra, using the settings in the target-config
+# ConfigMap, rendered to local-cluster/flux/<type>-config.yaml from resources/<type>-config.yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tofu-controller
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  retryInterval: 30s
+  timeout: 5m
+  path: ./local-cluster/targets/tofu-controller
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: mac-k8s-config
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: ${TARGET_TYPE}-infra
+  namespace: flux-system
+spec:
+  # The secrets Kustomization deploys the External Secrets vault SecretStore, used for the target's credentials
+  dependsOn:
+    - name: tofu-controller
+    - name: secrets
+  interval: 5m0s
+  retryInterval: 30s
+  timeout: 2m
+  path: ./local-cluster/targets/${TARGET_TYPE}/infra
+  # Pruning the Terraform object destroys the target cluster
+  prune: true
+  # Creating the cluster takes longer than the Kustomization timeout, setup.sh waits for the Terraform object instead
+  wait: false
+  sourceRef:
+    kind: GitRepository
+    name: mac-k8s-config
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: target-config

@@ -1,0 +1,13 @@
+{{- if include "addon.certsEnabled" . }}
+# The cluster network operator injects the cluster's trusted CA bundle, including the Proxy trustedCA set up by
+# crc-setup.sh, into this ConfigMap, the cert-manager operator mounts it in cert-manager
+# The cert-manager namespace is created by setup.sh
+# OLM operators use the cluster wide proxy, set by crc config set http-proxy, https-proxy and no-proxy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trusted-ca
+  namespace: cert-manager
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+{{- end }}

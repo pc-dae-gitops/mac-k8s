@@ -1,0 +1,7 @@
+- target:
+    kind: ServiceAccount
+  patch: |
+    - op: add
+      path: /imagePullSecrets
+      value:
+        - name: ${IMAGE_PULL_SECRET_NAME}
