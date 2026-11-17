@@ -41,5 +41,8 @@ spec:
     name: mac-k8s-config
   postBuild:
     substituteFrom:
+      # vaultSecretsPrefix, the Vault path of the target's credentials, see infra/aws-credentials.yaml
+      - kind: ConfigMap
+        name: cluster-config
       - kind: ConfigMap
         name: target-config

@@ -1,0 +1,14 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: ${chartSourceName}
+  namespace: ${nameSpace}
+spec:
+  interval: ${chartSourceInterval:=5m0s}
+  url: ${chartSourceUrl}
+  # The Helm chart layer, copied as is, as recommended for HelmRelease chartRef sources
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: ${chartVersion}

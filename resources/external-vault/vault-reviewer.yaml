@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-vault-reviewer
+  namespace: flux-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-vault-reviewer-token
+  namespace: flux-system
+  annotations:
+    kubernetes.io/service-account.name: external-vault-reviewer
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-vault-reviewer-${VAULT_CLUSTER_ID}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: external-vault-reviewer
+    namespace: flux-system

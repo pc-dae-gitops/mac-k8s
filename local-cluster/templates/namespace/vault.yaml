@@ -14,17 +14,19 @@ metadata:
 spec:
   provider:
     vault:
-      server: https://vault.vault.svc:8200
+      # The in-cluster vault unless EXTERNAL_VAULT is set, local-cluster/templates/namespace-external adds the Vault
+      # Enterprise namespace, the defaults keep clusters whose cluster-config predates these settings working
+      server: ${vaultServer:=https://vault.vault.svc:8200}
       # CA that issued vault's server certificate, the local CA, or the OpenShift service CA on OpenShift, see setup.sh
       caProvider:
         type: ConfigMap
         name: ${vaultCaConfigMap:=local-ca}
         key: ${vaultCaKey:=CA.cer}
-      path: secrets
+      path: ${vaultKvMount:=secrets}
       version: v2
       auth:
         kubernetes:
-          mountPath: kubernetes
+          mountPath: ${vaultAuthMount:=kubernetes}
           role: ${nameSpace} # Created by deploy-apps.sh
           serviceAccountRef:
             name: vault-secrets
@@ -44,7 +46,7 @@ spec:
     creationPolicy: Owner
   dataFrom:
     - extract:
-        key: github-repo-read-credentials
+        key: ${vaultSecretsPrefix:=}github-repo-read-credentials
 ---
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
@@ -61,4 +63,4 @@ spec:
     creationPolicy: Owner
   dataFrom:
     - extract:
-        key: github-repo-write-token
+        key: ${vaultSecretsPrefix:=}github-repo-write-token

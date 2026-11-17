@@ -48,7 +48,8 @@ spec:
   interval: 5m0s
   retryInterval: 30s
   timeout: 30s
-  path: ./local-cluster/secrets
+  # secrets-external when EXTERNAL_VAULT is set, it adds the Vault Enterprise namespace to the SecretStore
+  path: ./local-cluster/secrets${vaultStoreSuffix:=}
   prune: true
   wait: true
   dependsOn:

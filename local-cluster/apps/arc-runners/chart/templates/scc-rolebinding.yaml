@@ -1,0 +1,29 @@
+{{- /* On OpenShift (crc/osc) the runner pods use fixed uid 1001 / fsGroup 123, outside the namespace's default
+restricted-v2 range, so grant the runner ServiceAccount use of the arc-runner-scc SCC (defined by the OSC core chart)
+in this namespace. Not needed on plain Kubernetes. clusterType is set from cluster-config via apps.yaml. */}}
+{{- if has .Values.clusterType (list "crc" "osc") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: arc-runner-scc-user
+  namespace: {{ include "arc-runners.namespace" . }}
+rules:
+  - apiGroups: ["security.openshift.io"]
+    resourceNames: ["arc-runner-scc"]
+    resources: ["securitycontextconstraints"]
+    verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: arc-runner-scc-user
+  namespace: {{ include "arc-runners.namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: arc-runner-scc-user
+subjects:
+  - kind: ServiceAccount
+    name: arc-runner-sa
+    namespace: {{ include "arc-runners.namespace" . }}
+{{- end }}

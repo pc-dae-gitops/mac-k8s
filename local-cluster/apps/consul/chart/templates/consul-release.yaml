@@ -1,0 +1,87 @@
+{{- $namespace := include "consul.namespace" . -}}
+{{- $chartSourceName := include "consul.chartSourceName" . -}}
+{{- $imagePullSecretName := include "consul.imagePullSecretName" . -}}
+{{- $mirrorRegistry := dig "corp" "mirrorRegistry" "" .Values.global -}}
+{{- $fullname := required "fullname is required" .Values.fullname -}}
+{{- /* The child Helm release is stored in the same namespace as this wrapper's, so its name must differ */ -}}
+{{- $upstreamReleaseName := .Values.upstream.releaseName | default (printf "%s-upstream" .Release.Name) -}}
+{{- if eq $upstreamReleaseName .Release.Name -}}
+{{- fail "upstream.releaseName must differ from the wrapper's release name" -}}
+{{- end -}}
+{{- if ne (int .Values.server.bootstrapExpect) (int .Values.server.replicas) -}}
+{{- fail "server.bootstrapExpect must equal server.replicas" -}}
+{{- end -}}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: {{ $chartSourceName }}
+  namespace: {{ $namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  url: https://helm.releases.hashicorp.com
+---
+# The upstream Consul chart is deliberately a child release rather than a chart dependency.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-server
+  namespace: {{ $namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  targetNamespace: {{ $namespace }}
+  releaseName: {{ $upstreamReleaseName | quote }}
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: {{ .Values.upstream.chart | quote }}
+      version: {{ .Values.upstream.version | quote }}
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: {{ $chartSourceName }}
+        namespace: {{ $namespace }}
+  # Keys must exist in the pinned upstream chart version, Helm ignores unknown ones. Do not set the top-level
+  # apiGateway stanza, removed upstream in favour of connectInject.apiGateway, the chart fails rendering if present.
+  values:
+    global:
+      # The upstream fullname, independent of the release name, so the server Service is <fullname>-server.
+      name: {{ $fullname | quote }}
+      openshift:
+        enabled: {{ .Values.global.openshift.enabled }}
+      {{- if $mirrorRegistry }}
+      # These image tags match the defaults in the pinned HashiCorp chart; update them with upstream.version.
+      image: {{ printf "%s/hashicorp/consul:1.21.2" (trimSuffix "/" $mirrorRegistry) | quote }}
+      imageK8S: {{ printf "%s/hashicorp/consul-k8s-control-plane:1.7.2" (trimSuffix "/" $mirrorRegistry) | quote }}
+      {{- end }}
+      {{- if $imagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ $imagePullSecretName | quote }}
+      {{- end }}
+    server:
+      enabled: true
+      replicas: {{ .Values.server.replicas }}
+      bootstrapExpect: {{ .Values.server.bootstrapExpect }}
+      storage: {{ .Values.server.storage | quote }}
+      {{- with .Values.server.storageClass }}
+      storageClass: {{ . | quote }}
+      {{- end }}
+    client:
+      enabled: false
+    connectInject:
+      enabled: false
+    ui:
+      enabled: false
+    syncCatalog:
+      enabled: false
+    meshGateway:
+      enabled: false
+    ingressGateways:
+      enabled: false
+    terminatingGateways:
+      enabled: false

@@ -32,3 +32,13 @@ export GITHUB_MGMT_BRANCH="${GITHUB_MGMT_BRANCH:-main}"
 export target_path="${target_path:-./local-cluster}"
 # Vault's root token and unseal keys, not in git, a target cluster's vault has its own
 export VAULT_INIT_FILE="${VAULT_INIT_FILE:-resources/.vault-init.json}"
+
+# External Vault, a Vault Enterprise namespace shared by several clusters, rather than the in-cluster vault. Opt-in,
+# except on osc clusters, which have no in-cluster vault, see configure_vault_environment in lib.sh
+export EXTERNAL_VAULT="${EXTERNAL_VAULT:-false}"
+export VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
+# Set to attach an existing shared policy to the external Vault roles instead of the per-cluster least privilege
+# policies setup writes, for a Vault namespace where policies cannot be created
+export VAULT_POLICY="${VAULT_POLICY:-}"
+export VAULT_SECRETS_PATH="${VAULT_SECRETS_PATH:-}"
+export VAULT_K8S_CA_CERT="${VAULT_K8S_CA_CERT:-}"

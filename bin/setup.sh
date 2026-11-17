@@ -57,6 +57,18 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 source $SCRIPT_DIR/lib.sh
 
+# The Vault settings are checked before the cluster is changed. The external Vault cluster ID defaults from
+# CLUSTER_NAME, so it is needed now, otherwise the default is set below once crc clusters have been detected, as the
+# default cluster name starts with the cluster type
+if [[ "${EXTERNAL_VAULT}" == "true" ]]; then
+  export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
+fi
+configure_vault_environment
+if [[ "${EXTERNAL_VAULT}" == "true" ]]; then
+  # Fails if there is no valid external Vault session, e.g. vault login has not been run
+  vault token lookup >/dev/null
+fi
+
 check_mgmt_branch
 
 if [ -n "$target" ]; then
@@ -70,9 +82,7 @@ if [ -n "$target" ]; then
   fi
 fi
 
-if [ -n "$debug_str" ]; then
-  env | sort
-fi
+# The environment is not dumped with --debug, it has the Vault token and GitHub credentials
 
 # Create a CA Certificate, used by cert-manager to issue ingress certificates and as the kind cluster CA. EKS target
 # clusters use the same CA, so their ingress certificates are trusted on this machine too
@@ -182,12 +192,29 @@ fi
 # ConfigMap holding the CA that issued vault's server certificate, trusted by the External Secrets SecretStores,
 # see local-cluster/templates/namespace/vault.yaml. OpenShift creates the openshift-service-ca.crt ConfigMap in
 # every namespace, setup.sh creates local-ca in the addon namespaces and the apps ResourceSet copies it
-if [[ "${CLUSTER_TYPE}" == "crc" || "${CLUSTER_TYPE}" == "osc" ]]; then
+if [[ "${CLUSTER_TYPE}" == "osc" ]]; then
+  # The external Vault's corporate certificate, OpenShift injects the trusted CA bundle into corp-ca, see proxy_cert
+  export VAULT_CA_CONFIGMAP=corp-ca
+  export VAULT_CA_KEY=ca-bundle.crt
+elif [[ "${CLUSTER_TYPE}" == "crc" ]]; then
   export VAULT_CA_CONFIGMAP=openshift-service-ca.crt
   export VAULT_CA_KEY=service-ca.crt
 else
   export VAULT_CA_CONFIGMAP=local-ca
   export VAULT_CA_KEY=CA.cer
+fi
+
+# The flux-system SecretStore's corp-ca ConfigMap, proxy_cert creates it in the other namespaces
+if [[ "${CLUSTER_TYPE}" == "osc" ]]; then
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: corp-ca
+  namespace: flux-system
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+EOF
 fi
 
 # The target cluster's ingress domain, for the cluster running tofu-controller's apps, see resources/cluster-config.yaml
@@ -337,36 +364,42 @@ if [ "$CLUSTER_TYPE" == "eks" ]; then
   wait_for_url "${VAULT_ADDR}/v1/sys/health" 900
 fi
 
-# Wait for vault to start
-while ( true ); do
-  echo "Waiting for vault to start"
-  set +e
-  started="$(kubectl get pod/vault-0 -n vault -o json 2>/dev/null | jq -r '.status.containerStatuses[0].started')"
-  set -e
-  if [ "$started" == "true" ]; then
-    break
+if [[ "${EXTERNAL_VAULT}" == "true" ]]; then
+  # The external Vault's Kubernetes auth mount and policies for this cluster, then the secrets
+  external-vault-config.sh $debug_str
+  secrets.sh $debug_str
+else
+  # Wait for vault to start
+  while ( true ); do
+    echo "Waiting for vault to start"
+    set +e
+    started="$(kubectl get pod/vault-0 -n vault -o json 2>/dev/null | jq -r '.status.containerStatuses[0].started')"
+    set -e
+    if [ "$started" == "true" ]; then
+      break
+    fi
+    sleep 5
+  done
+
+  if [[ "${CLUSTER_TYPE}" == "crc" ]]; then
+    # vault is initialized and unsealed via its route
+    echo "Waiting for vault ingress"
+    wait_for 600 Ready helmreleases.helm.toolkit.fluxcd.io vault-ingress flux-system
   fi
+
   sleep 5
-done
+  # Initialize vault
+  vault-init.sh $debug_str --tls-skip
+  vault-unseal.sh $debug_str --tls-skip
 
-if [[ "${CLUSTER_TYPE}" == "crc" || "${CLUSTER_TYPE}" == "osc" ]]; then
-  # vault is initialized and unsealed via its route
-  echo "Waiting for vault ingress"
-  wait_for 600 Ready helmreleases.helm.toolkit.fluxcd.io vault-ingress flux-system
+  export VAULT_TOKEN="$(jq -r '.root_token' ${VAULT_INIT_FILE})"
+  # External Secrets uses Kubernetes auth, the root token is no longer stored in the cluster
+  kubectl delete secret vault-token -n vault --ignore-not-found
+
+  vault-secrets-config.sh $debug_str --tls-skip
+
+  secrets.sh $debug_str --tls-skip
 fi
-
-sleep 5
-# Initialize vault
-vault-init.sh $debug_str --tls-skip
-vault-unseal.sh $debug_str --tls-skip
-
-export VAULT_TOKEN="$(jq -r '.root_token' ${VAULT_INIT_FILE})"
-# External Secrets uses Kubernetes auth, the root token is no longer stored in the cluster
-kubectl delete secret vault-token -n vault --ignore-not-found
-
-vault-secrets-config.sh $debug_str --tls-skip
-
-secrets.sh $debug_str --tls-skip
 
 if [[ "${CLUSTER_TYPE}" == "crc" ]]; then
   # Wait for the cluster logging operator to be installed

@@ -71,6 +71,8 @@ source "\$(git rev-parse --show-toplevel)/.envrc"
 export CLUSTER_ENV_DIR="\${top_level}/target-cluster"
 export target_path="./target-cluster"
 export CLUSTER_TYPE=eks
+# The EKS cluster has its own in-cluster vault, even if the repository's .envrc sets EXTERNAL_VAULT for the local cluster
+export EXTERNAL_VAULT=false
 export CLUSTER_NAME="${EKS_CLUSTER_NAME}"
 export KUBECONFIG="\${HOME}/.kube/eks-${EKS_CLUSTER_NAME}.yaml"
 # <ingress load balancer IP>.nip.io, set by setup.sh once the ingress controller has a load balancer
@@ -93,7 +95,9 @@ function target_setup()
   (
     unset KIND_CLUSTER CLUSTER_IP STORAGE_CLASS INGRESS_CLASS_NAME FLUX_CLUSTER_TYPE KUBELET_INSECURE_TLS \
       VAULT_CA_CONFIGMAP VAULT_CA_KEY CA_CERT CLUSTER_NAME CLUSTER_TYPE VAULT_TOKEN VAULT_ADDR vaultIngress namespace \
-      nameSpace FLUX_SYNC_PATH INGRESS_SOURCE_RANGES local_dns target_path VAULT_INIT_FILE
+      nameSpace FLUX_SYNC_PATH INGRESS_SOURCE_RANGES local_dns target_path VAULT_INIT_FILE EXTERNAL_VAULT \
+      VAULT_CLUSTER_ID VAULT_SECRETS_PREFIX VAULT_AUTH_MOUNT VAULT_STORE_SUFFIX VAULT_SERVER VAULT_POLICY_PREFIX \
+      VAULT_KV_MOUNT VAULT_POLICY VAULT_NAMESPACE VAULT_CACERT
     # kubectl authenticates to EKS using the AWS profile, e.g. AWS SSO, which refreshes its credentials, rather than
     # the creds/aws.sh credentials, which expire
     if [ -n "${AWS_PROFILE:-}" ]; then

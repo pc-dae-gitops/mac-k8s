@@ -1,0 +1,51 @@
+# ARC runner pods use fixed uid 1001 and fsGroup 123. This cluster-scoped SCC is installed during OSC core bootstrap,
+# before any runner namespace exists. The arc-runners runner-set chart renders the per-namespace, OpenShift-gated
+# grant allowing its arc-runner-sa ServiceAccount to use this SCC.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: arc-runner-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: true
+# allowHostPorts, defaultAddCapabilities and priority are required by the SCC CRD schema
+defaultAddCapabilities: []
+priority: 0
+allowedCapabilities:
+  - CHOWN
+  - SETUID
+  - SETGID
+  - FOWNER
+  - DAC_OVERRIDE
+  - SETFCAP
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 123
+      max: 123
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - KILL
+  - MKNOD
+runAsUser:
+  type: MustRunAs
+  uid: 1001
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+# The restricted-v2 volume types, inline csi volumes are also subject to the CSI driver's admission profile
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  # The kubernetes container mode work volume is a generic ephemeral volume
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret

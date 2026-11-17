@@ -1,0 +1,60 @@
+# A Helm release whose chart is supplied by a HelmRepository, see local-cluster/templates/helm-release for the values passed.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${releaseName}
+  namespace: ${nameSpace}
+spec:
+  interval: 5m0s
+  timeout: ${releaseTimeout:=5m}
+  targetNamespace: ${nameSpace}
+  releaseName: ${releaseName}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chart:
+    spec:
+      chart: ${chart}
+      version: ${chartVersion}
+      reconcileStrategy: ChartVersion
+      ignoreMissingValuesFiles: true
+      sourceRef:
+        kind: HelmRepository
+        name: ${chartSourceName}
+        namespace: ${nameSpace}
+  valuesFrom:
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: clusterType
+      targetPath: clusterType
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: mirrorRegistry
+      targetPath: global.corp.mirrorRegistry
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: imagePullSecretName
+      targetPath: global.corp.imagePullSecretName
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: proxy
+      targetPath: global.corp.proxy
+      optional: true
+    - kind: ConfigMap
+      name: cluster-config
+      valuesKey: certs
+      targetPath: global.corp.certs
+      optional: true
+    - kind: ConfigMap
+      name: ${releaseName}-values
+      valuesKey: values.yaml
+      optional: true

@@ -30,6 +30,11 @@ function local_or_global() {
 
 # Configure the Vault CLI to trust the CA generated for this repository.
 function export_vault_cacert() {
+    # An external Vault's certificate is trusted through the system trust store
+    if [[ "${EXTERNAL_VAULT:-false}" == "true" ]]; then
+        return 0
+    fi
+
     local ca_file="${top_level}/resources/CA.cer"
     if [ -f "${ca_file}" ]; then
         export VAULT_CACERT="${ca_file}"
@@ -98,6 +103,118 @@ function default_cluster_name() {
         sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-63 | sed -E 's/-+$//'
 }
 
+# Return the sanitised leading DNS label used to isolate a cluster in external Vault.
+function default_vault_cluster_id() {
+    local cluster_name="${1:?usage: default_vault_cluster_id <cluster-name>}"
+    printf '%s\n' "${cluster_name%%.*}" | tr '[:upper:]' '[:lower:]' | \
+        sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+# Set the Vault naming contract shared by setup and standalone secret scripts.
+function configure_vault_environment() {
+    export EXTERNAL_VAULT="${EXTERNAL_VAULT:-false}"
+
+    if [[ "${CLUSTER_TYPE:-k8s}" == "osc" && "${EXTERNAL_VAULT}" != "true" ]]; then
+        echo "ERROR: EXTERNAL_VAULT=true is required for OSC clusters" >&2
+        return 1
+    fi
+
+    if [[ "${EXTERNAL_VAULT}" == "true" ]]; then
+        # External Vault uses the system/keychain trust store for its corporate certificate.
+        unset VAULT_CACERT
+        if [[ -z "${VAULT_ADDR:-}" ]]; then
+            echo "ERROR: VAULT_ADDR is required when EXTERNAL_VAULT=true" >&2
+            return 1
+        fi
+        if [[ -z "${VAULT_NAMESPACE:-}" ]]; then
+            echo "ERROR: VAULT_NAMESPACE is required when EXTERNAL_VAULT=true" >&2
+            return 1
+        fi
+        if [[ -z "${CLUSTER_NAME:-}" ]]; then
+            echo "ERROR: CLUSTER_NAME is required when EXTERNAL_VAULT=true" >&2
+            return 1
+        fi
+
+        export VAULT_CLUSTER_ID="${VAULT_CLUSTER_ID:-$(default_vault_cluster_id "${CLUSTER_NAME}")}"
+        if [[ -z "${VAULT_CLUSTER_ID}" || ${#VAULT_CLUSTER_ID} -gt 63 || ! "${VAULT_CLUSTER_ID}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "ERROR: VAULT_CLUSTER_ID must be a non-empty lowercase DNS label" >&2
+            return 1
+        fi
+
+        # Squeeze repeated slashes (tr is portable, bash 3.2 mishandles escaped slashes in ${var//}), then strip
+        # leading and trailing slashes
+        local secrets_path
+        secrets_path="$(printf '%s' "${VAULT_SECRETS_PATH:-}" | tr -s '/')"
+        secrets_path="${secrets_path#/}"
+        secrets_path="${secrets_path%/}"
+        # The path and mount are interpolated into Vault and SecretStore paths, reject glob (* +) and quoting characters
+        if [[ -n "${secrets_path}" && ! "${secrets_path}" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]]; then
+            echo "ERROR: VAULT_SECRETS_PATH may only contain letters, digits, '.', '_', '-' and '/'" >&2
+            return 1
+        fi
+        if [[ -n "${secrets_path}" ]]; then
+            secrets_path="${secrets_path}/"
+        fi
+
+        export VAULT_KV_MOUNT="${VAULT_KV_MOUNT:-kv}"
+        if [[ ! "${VAULT_KV_MOUNT}" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]]; then
+            echo "ERROR: VAULT_KV_MOUNT may only contain letters, digits, '.', '_', '-' and '/'" >&2
+            return 1
+        fi
+        export VAULT_SERVER="${VAULT_ADDR}"
+        # Selects the local-cluster/secrets-external and local-cluster/templates/namespace-external overlays, which
+        # add the Vault Enterprise namespace (cluster-config vaultNamespace) to the SecretStores
+        export VAULT_STORE_SUFFIX="-external"
+        export VAULT_AUTH_MOUNT="${VAULT_CLUSTER_ID}"
+        export VAULT_SECRETS_PREFIX="${secrets_path}${VAULT_CLUSTER_ID}/"
+        # The Vault namespace is shared, so the policies setup writes are named after the cluster
+        export VAULT_POLICY_PREFIX="${VAULT_CLUSTER_ID}-"
+        # An existing shared policy attached instead of the per-cluster policies, empty to write them
+        export VAULT_POLICY="${VAULT_POLICY:-}"
+        export VAULT_NAMESPACE
+    else
+        # In-cluster Vault, fixed to what vault-secrets-config.sh configures, environment overrides are ignored so the
+        # rendered SecretStores are unchanged
+        export VAULT_KV_MOUNT="secrets"
+        export VAULT_SERVER="https://vault.vault.svc:8200"
+        export VAULT_STORE_SUFFIX=""
+        export VAULT_AUTH_MOUNT="kubernetes"
+        export VAULT_SECRETS_PREFIX=""
+        export VAULT_POLICY_PREFIX=""
+        export VAULT_POLICY=""
+        export VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
+    fi
+}
+
+# Write the Vault policies for the secrets written by secrets.sh and aws-creds.sh, using the settings set by
+# configure_vault_environment. namespace-common is attached to every app namespace's role, see deploy-apps.sh, for the
+# ExternalSecrets in local-cluster/templates/namespace/vault.yaml. flux-system is attached to the flux-system role,
+# for the ExternalSecrets in local-cluster/bases/flux/secrets.yaml and local-cluster/targets/eks/infra
+# Usage: write_vault_common_policies [vault option]...
+function write_vault_common_policies() {
+    local secrets="${VAULT_KV_MOUNT}/data/${VAULT_SECRETS_PREFIX}"
+    vault policy write "$@" "${VAULT_POLICY_PREFIX}namespace-common" - >/dev/null <<EOF
+path "${secrets}github-repo-read-credentials" {
+  capabilities = ["read"]
+}
+path "${secrets}github-repo-write-token" {
+  capabilities = ["read"]
+}
+EOF
+    vault policy write "$@" "${VAULT_POLICY_PREFIX}flux-system" - >/dev/null <<EOF
+path "${secrets}github-repo-write-token" {
+  capabilities = ["read"]
+}
+path "${secrets}receiver-token" {
+  capabilities = ["read"]
+}
+# Target cluster credentials, see aws-creds.sh
+path "${secrets}aws-credentials" {
+  capabilities = ["read"]
+}
+EOF
+}
+
 # Fail if the cluster repository's checked out branch isn't GITHUB_MGMT_BRANCH, the branch Flux deploys.
 # The setup scripts commit and push generated files to the checked out branch.
 function check_mgmt_branch() {
@@ -148,7 +265,7 @@ function route_crc_ca() {
 }
 
 # Image pull secret used by the core addons, IMAGE_PULL_SECRET_NAME, see cluster-config imagePullSecretName.
-# Uses the CORP_MIRROR credentials if CORP_MIRROR is set, otherwise the Docker Hub credentials
+# Creates one pull secret with auths for CORP_MIRROR and/or CORP_REGISTRY, or Docker Hub when neither is set.
 function add_mirror_image_pull_secret() {
   local namespace="${1:-}"
   if [ -z "$namespace" ]; then
@@ -158,28 +275,46 @@ function add_mirror_image_pull_secret() {
   if [[ -z "${IMAGE_PULL_SECRET_NAME:-}" ]]; then
     return
   fi
-  local server="https://index.docker.io/v1/"
-  local user="${DOCKERHUB_USER:-}"
-  local token="${DOCKERHUB_TOKEN:-}"
+
+  local xtrace_was_enabled=false
+  [[ $- == *x* ]] && xtrace_was_enabled=true
+  set +x
+
+  local dockerconfigjsons=()
+  local server
+  local user
+  local token
   if [[ -n "${CORP_MIRROR:-}" ]]; then
     server="https://${CORP_MIRROR}"
     user="${CORP_MIRROR_USER:-}"
     token="${CORP_MIRROR_TOKEN:-}"
+    dockerconfigjsons+=("$(kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server="${server}" --docker-username="${user}" --docker-password="${token}" --docker-email="${USER_EMAIL}" --dry-run=client -o json | jq -r '.data[".dockerconfigjson"]' | base64 -d)")
   fi
-  kubectl create secret -n $namespace docker-registry ${IMAGE_PULL_SECRET_NAME} --docker-server=${server} --docker-username=${user} --docker-password=${token} --docker-email=${USER_EMAIL} --dry-run=client -o yaml | kubectl apply -f -
-}
 
-function add_registry_image_pull_secret() {
-  local namespace="${1:-}"
-  if [ -z "$namespace" ]; then
-    echo "usage: proxy_cert <namespace>"
-    exit 1
+  if [[ -n "${CORP_REGISTRY:-}" ]]; then
+    server="https://${CORP_REGISTRY}"
+    user="${CORP_REGISTRY_USER:-}"
+    token="${CORP_REGISTRY_TOKEN:-}"
+    dockerconfigjsons+=("$(kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server="${server}" --docker-username="${user}" --docker-password="${token}" --docker-email="${USER_EMAIL}" --dry-run=client -o json | jq -r '.data[".dockerconfigjson"]' | base64 -d)")
   fi
-  if [ -z "${CORP_REGISTRY:-}" ]; then
-    return
+
+  if [[ -z "${CORP_MIRROR:-}" && -z "${CORP_REGISTRY:-}" ]]; then
+    server="https://index.docker.io/v1/"
+    user="${DOCKERHUB_USER:-}"
+    token="${DOCKERHUB_TOKEN:-}"
+    dockerconfigjsons+=("$(kubectl create secret docker-registry "${IMAGE_PULL_SECRET_NAME}" --docker-server="${server}" --docker-username="${user}" --docker-password="${token}" --docker-email="${USER_EMAIL}" --dry-run=client -o json | jq -r '.data[".dockerconfigjson"]' | base64 -d)")
   fi
-  local nameSpace="$1"
-  kubectl create secret -n $namespace docker-registry mirror-image-pull --docker-server=https://${CORP_REGISTRY} --docker-username=${CORP_REGISTRY_USER} --docker-password=${CORP_REGISTRY_TOKEN} --docker-email=${USER_EMAIL} --dry-run=client -o yaml | kubectl apply -f -
+
+  local merged_dockerconfigjson
+  merged_dockerconfigjson="$(printf '%s\n' "${dockerconfigjsons[@]}" | jq -s 'reduce .[] as $o ({}; .auths += $o.auths) | {auths: .auths}')"
+  kubectl create secret generic "${IMAGE_PULL_SECRET_NAME}" -n "${namespace}" \
+    --type=kubernetes.io/dockerconfigjson \
+    --from-file=.dockerconfigjson=<(printf '%s' "${merged_dockerconfigjson}") \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  if [[ "${xtrace_was_enabled}" == "true" ]]; then
+    set -x
+  fi
 }
 
 function proxy_cert() {
@@ -190,6 +325,7 @@ function proxy_cert() {
   fi
   PROXY_FILE="${top_level}/${target_path:-./local-cluster}/local-config/proxy.yaml"
   CERTS_FILE="/tmp/combined-certs.yaml"
+  CORP_CA_FILE="${config_dir}/local-cluster/core/osc/certs/corp-ca.yaml"
 
   # Apply with envsubst, targeting the namespace
   export NAMESPACE="$namespace"
@@ -198,6 +334,15 @@ function proxy_cert() {
   fi
   if [ -f "${CERTS_FILE}" ]; then
       envsubst < $CERTS_FILE | kubectl apply --server-side --force-conflicts -f -
+  fi
+  if [ "$CLUSTER_TYPE" == "osc" ]; then
+      # On osc, also the corp-ca ConfigMap, which OpenShift injects the trusted CA bundle into, used as the external
+      # Vault's CA by the SecretStores, see setup.sh
+      if [ ! -f "${CORP_CA_FILE}" ]; then
+          echo "ERROR: proxy_cert: ${CORP_CA_FILE} not found" >&2
+          exit 1
+      fi
+      envsubst < "${CORP_CA_FILE}" | kubectl apply --server-side --force-conflicts -f -
   fi
 }
 

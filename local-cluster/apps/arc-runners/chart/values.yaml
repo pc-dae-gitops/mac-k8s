@@ -1,0 +1,127 @@
+# GitHub organization, repository, or enterprise URL. Required.
+githubConfigUrl: ""
+# Name advertised for this runner scale set.
+runnerScaleSetName: ""
+# Minimum number of idle runners.
+minRunners: 1
+# Maximum number of runners.
+maxRunners: 6
+# Kubernetes Secret containing GitHub App credentials. Required.
+githubConfigSecret: ""
+# GitHub runner group used by this scale set.
+runnerGroup: Default
+# Region label and ACTIONS_RUNNER_REGION value.
+region: ""
+# Runner image used by the upstream chart.
+runnerImage: ghcr.io/actions/actions-runner:latest
+# StorageClass for the generic ephemeral work volume.
+storageClass: ""
+# Namespace for owned resources and the child release, defaults to the release namespace.
+namespace: ""
+# Cluster type from cluster-config (osc, crc, k8s). On OpenShift (osc/crc) the chart grants the runner ServiceAccount
+# use of the arc-runner-scc SecurityContextConstraints (defined in the OSC core chart) in this namespace. Set from
+# apps.yaml: values.clusterType: ${clusterType}, required on OSC or runner pods are rejected. Empty / non-OpenShift:
+# no SCC binding is rendered. crc does not install the SCC, so the grant is inert there.
+clusterType: ""
+# Optional pull secret. If empty, global.corp.imagePullSecretName is used when supplied by the parent release.
+imagePullSecretName: ""
+
+# Values automatically supplied by the shared GitRepository HelmRelease path.
+global: {}
+
+# Upstream OCI chart source. Registry and chart can be overridden for a corporate mirror.
+upstream:
+  registry: oci://ghcr.io/actions/actions-runner-controller-charts
+  chart: gha-runner-scale-set
+  version: "0.12.1"
+  interval: 5m0s
+  # Helm release name of the child release, defaults to <release name>-upstream. It must differ from this wrapper's
+  # release name, both are stored in the same namespace.
+  releaseName: ""
+
+# Controller service account coordinates consumed by the scale-set chart.
+controllerServiceAccount:
+  name: arc-controller-sa
+  namespace: arc-system
+
+# Kubernetes container mode passed to the upstream chart.
+containerMode:
+  type: kubernetes
+
+# Baked listener pod defaults. These remain overridable for exceptional deployments.
+listener:
+  serviceAccountName: arc-runner-sa
+  # Informational only, the SCC is chosen by admission, arc-runner-scc via arc-runner-sa on OSC. Do not use
+  # openshift.io/required-scc, arc-runner-sa may not use anyuid, so the listener pod would be rejected.
+  annotations:
+    openshift.io/scc: anyuid
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Baked runner pod/container defaults.
+runner:
+  serviceAccountName: arc-runner-sa
+  uid: 1001
+  fsGroup: 123
+  # Runner container hardening, runAsUser is added from uid. The job pods get theirs from the hook template.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+  command:
+    - /home/runner/run.sh
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  probe:
+    command:
+      - /bin/sh
+      - -c
+      - ps aux | grep -v grep | grep -q Runner.Listener || exit 1
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 5
+  env:
+    workdir: /home/runner/_work
+    actionsRunnerContainerHooks: /home/runner/k8s/index.js
+    hookTemplate: /etc/arc-templates/pod-template.yaml
+    requireJobContainer: "false"
+    disableRunnerUpdate: "true"
+    runnerNamePrefix: ocp-runner
+    printLogToStdout: "1"
+
+# Generic ephemeral work PVC defaults.
+workVolume:
+  size: 10Gi
+
+# Corporate proxy defaults passed to runner and listener pods by the upstream chart.
+proxy:
+  http:
+    url: http://uk5.proxy.corp.org:80
+  https:
+    url: http://uk5.proxy.corp.org:80
+  noProxy:
+    - .corp.org
+    - dev.global.corp.org
+    - github.com
+    - localhost
+    - 127.0.0.1
+    - 10.116.32.1
+    - 10.116.128.1
+    - 10.116.0.0/12
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - .cluster.local
+    - kubernetes.default.svc

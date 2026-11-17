@@ -1,0 +1,33 @@
+# Namespace for the Flux source and child release. Defaults to the wrapper release namespace.
+namespace: ""
+
+# Optional override for the pull secret supplied by cluster-config through
+# global.corp.imagePullSecretName.
+imagePullSecretName: ""
+
+# Values automatically supplied by the shared GitRepository HelmRelease path.
+global:
+  openshift:
+    enabled: false
+
+# Upstream fullname (global.name), fixed independently of any release name so the server Service is always
+# <fullname>-server, i.e. consul-server.<namespace>.svc.cluster.local:8500.
+fullname: consul
+
+# Upstream HashiCorp Consul chart source. Keep the chart version pinned.
+upstream:
+  chart: consul
+  version: "1.7.2"
+  interval: 5m0s
+  # Helm release name of the child release, defaults to <release name>-upstream. It must differ from this wrapper's
+  # release name, both are stored in the same namespace.
+  releaseName: ""
+
+# Server-only Consul configuration. bootstrapExpect must equal replicas.
+server:
+  replicas: 1
+  bootstrapExpect: 1
+  storage: 10Gi
+  # StorageClass for the server PVC, empty uses the cluster default. Helm does not substitute ${...} in this file,
+  # set it from apps.yaml, e.g. values.server.storageClass: ${storageClass}, which Flux substitutes.
+  storageClass: ""

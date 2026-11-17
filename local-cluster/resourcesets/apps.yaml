@@ -4,7 +4,10 @@
 # - the Namespace, the ${vaultCaConfigMap} and cluster-config ConfigMaps, copied from flux-system, and the <app>-config ConfigMap
 #   with the app's config, used by the app's Kustomizations' postBuild substitutions
 # - an ExternalSecret for each of the app's secrets and its sourceSecret, deploy-apps.sh writes them to Vault at
-#   apps/<app>/<secret name>
+#   apps/<app>/<secret name>; a secret whose value is the marker { external: true } is external-only, its
+#   ExternalSecret extracts the secret name as the Vault path verbatim, is named after the path's lowercased basename
+#   and is not written to Vault (matches deploy-apps.sh's .value.external filter). A null value cannot be used, the
+#   ResourceSetInputProvider drops null-valued keys from its exported inputs
 # - a chain of Flux Kustomizations:
 #   namespace-<namespace> -> app-source-<app> -> app-config-<app> (if clusterConfig) -> app-<app> and release-<release>
 #   app-source-<app>: the GitRepository the app is deployed from, see local-cluster/templates/app-source
@@ -77,11 +80,17 @@ spec:
     <<- $secretNames = append $secretNames $sourceSecret >>
     <<- end >>
     <<- range $s := $secretNames >>
+    <<- $secretVal := get $secrets $s >>
+    <<- $external := and (kindIs "map" $secretVal) (eq (toString (dig "external" false $secretVal)) "true") >>
     ---
     apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
     metadata:
+      <<- if $external >>
+      name: << base $s | lower >>
+      <<- else >>
       name: << $s >>
+      <<- end >>
       namespace: << $ns >>
     spec:
       refreshInterval: 5m
@@ -89,11 +98,19 @@ spec:
         kind: SecretStore
         name: vault
       target:
+        <<- if $external >>
+        name: << base $s | lower >>
+        <<- else >>
         name: << $s >>
+        <<- end >>
         creationPolicy: Owner
       dataFrom:
         - extract:
-            key: apps/<< $app >>/<< $s >>
+            <<- if $external >>
+            key: << $s >>
+            <<- else >>
+            key: ${vaultSecretsPrefix:=}apps/<< $app >>/<< $s >>
+            <<- end >>
     <<- end >>
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -105,7 +122,8 @@ spec:
       interval: 5m0s
       retryInterval: 30s
       timeout: 30s
-      path: ./local-cluster/templates/namespace
+      # namespace-external when EXTERNAL_VAULT is set, it adds the Vault Enterprise namespace to the SecretStore
+      path: ./local-cluster/templates/namespace${vaultStoreSuffix:=}
       prune: true
       wait: true
       sourceRef:
@@ -217,6 +235,19 @@ spec:
             name: << $app >>-config
     <<- end >>
     <<- range $r := $releases >>
+    <<- $chartSource := get $r "chartSource" | default dict >>
+    <<- $chartSourceType := get $chartSource "type" | default "oci" >>
+    <<- $chartSourceName := get $chartSource "name" | default (printf "%s-%s-chart" $app $r.name) >>
+    <<- $chartSourceUrl := "" >>
+    <<- $chartVersion := "" >>
+    <<- if $chartSource >>
+    <<- if not (has $chartSourceType (list "oci" "helm")) >><<- fail (printf "release %s chartSource.type must be oci or helm" $r.name) >><<- end >>
+    <<- if not (get $chartSource "url") >><<- fail (printf "release %s chartSource.url is required" $r.name) >><<- end >>
+    <<- if not (get $chartSource "version") >><<- fail (printf "release %s chartSource.version is required" $r.name) >><<- end >>
+    <<- $chartSourceUrl = get $chartSource "url" >>
+    <<- $chartVersion = get $chartSource "version" >>
+    <<- if eq $chartSourceType "oci" >><<- $chartSourceUrl = printf "%s/%s" (trimSuffix "/" $chartSourceUrl) (trimPrefix "./" $r.chart) >><<- end >>
+    <<- end >>
     ---
     apiVersion: kustomize.toolkit.fluxcd.io/v1
     kind: Kustomization
@@ -230,7 +261,11 @@ spec:
       dependsOn:
         - name: << $configDep >>
           namespace: << $ns >>
+      <<- if $chartSource >>
+      path: ./local-cluster/templates/helm-release-<< $chartSourceType >>
+      <<- else >>
       path: ./local-cluster/templates/helm-release
+      <<- end >>
       prune: true
       wait: true
       sourceRef:
@@ -241,10 +276,12 @@ spec:
         - target:
             kind: HelmRelease
           patch: |
+            <<- if not (and $chartSource (eq $chartSourceType "oci")) >>
             <<- with get $r "valuesFiles" >>
             - op: add
               path: /spec/chart/spec/valuesFiles
               value: << toJson . >>
+            <<- end >>
             <<- end >>
             - op: add
               path: /spec/values
@@ -254,6 +291,12 @@ spec:
           releaseName: << $r.name >>
           chart: << $r.chart | quote >>
           releaseTimeout: << get $r "timeout" | default "5m" >>
+          <<- if $chartSource >>
+          chartSourceName: << $chartSourceName >>
+          chartSourceUrl: << $chartSourceUrl | quote >>
+          chartVersion: << $chartVersion | quote >>
+          chartSourceInterval: << get $chartSource "interval" | default "5m0s" | quote >>
+          <<- end >>
         substituteFrom:
           - kind: ConfigMap
             name: cluster-config

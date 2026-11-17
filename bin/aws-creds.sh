@@ -107,12 +107,14 @@ if [ "$vault" == "0" ]; then
   exit
 fi
 
+export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
+configure_vault_environment
 export_vault_cacert
 jq -n '{AWS_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY: env.AWS_SECRET_ACCESS_KEY,
         AWS_REGION: env.AWS_REGION, AWS_DEFAULT_REGION: env.AWS_REGION}
        + (if env.AWS_SESSION_TOKEN then {AWS_SESSION_TOKEN: env.AWS_SESSION_TOKEN} else {} end)' | \
-  vault kv put ${tls_skip} -mount=secrets aws-credentials - >/dev/null
-echo "Written AWS credentials to Vault at secrets/aws-credentials"
+  vault kv put ${tls_skip} -mount="${VAULT_KV_MOUNT}" "${VAULT_SECRETS_PREFIX}aws-credentials" - >/dev/null
+echo "Written AWS credentials to Vault at ${VAULT_KV_MOUNT}/${VAULT_SECRETS_PREFIX}aws-credentials"
 
 # Refresh the secret now, rather than at the ExternalSecret's refresh interval, then retry the Terraform objects
 if kubectl get externalsecrets.external-secrets.io aws-credentials -n flux-system >/dev/null 2>&1; then
