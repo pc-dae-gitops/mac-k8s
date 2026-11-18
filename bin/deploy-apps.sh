@@ -85,20 +85,26 @@ function add_corp_config()
 
 function add_vault_auth()
 {
-    # Give the namespace's vault-secrets service account, used by External Secrets, and arc-runner-sa, used by ARC
-    # runner job pods that read Vault directly with vault-action, read access to its apps' secrets
+    # Give the namespace's vault-secrets service account, used by External Secrets, read access to its apps' secrets,
+    # and arc-runner-sa, used by ARC runner job pods that read Vault directly with vault-action, if the namespace has an
+    # ARC runner set, the arc-runners chart creates it, see local-cluster/apps/arc-runners/chart
     # One policy per app, covering apps/<app name>/* and the app's external-only secrets
-    # One role per namespace, bound to both service accounts, with the policies of every app in that namespace plus
+    # One role per namespace, bound to the service accounts, with the policies of every app in that namespace plus
     # namespace-common, so namespaces shared by apps work
     # With an external Vault the policies are named after the cluster, see configure_vault_environment in lib.sh
     # stdin is redirected so yq and vault do not consume the app list being read by the while loop
+    local service_accounts="vault-secrets"
+    if [[ "$(yq '[.spec.defaultValues.apps[] | select(.namespace == strenv(nameSpace)) | (.releases // [])[] |
+        select((.chart // "") | test("(^|/)arc-runners/chart/?$"))] | length' "${apps_file}" </dev/null)" != "0" ]]; then
+      service_accounts="${service_accounts},arc-runner-sa"
+    fi
     if [[ -n "${VAULT_POLICY}" ]]; then
         # An existing shared policy, for an external Vault namespace where policies cannot be created. It decides what
         # the namespace's service accounts can read, e.g. approle-policy grants every kv secret, including other
         # clusters' and those of the other namespaces, to untrusted CI workflow code running as arc-runner-sa
-        echo "Create Vault role: ${nameSpace}, policies: ${VAULT_POLICY}"
+        echo "Create Vault role: ${nameSpace}, service accounts: ${service_accounts}, policies: ${VAULT_POLICY}"
         vault write "auth/${VAULT_AUTH_MOUNT}/role/${nameSpace}" \
-          bound_service_account_names=vault-secrets,arc-runner-sa \
+          bound_service_account_names="${service_accounts}" \
           bound_service_account_namespaces="${nameSpace}" \
           policies="${VAULT_POLICY}" \
           ttl=1h >/dev/null </dev/null
@@ -126,9 +132,9 @@ path \"${VAULT_KV_MOUNT}/data/${external_path}\" {
     vault policy write "${VAULT_POLICY_PREFIX}app-${appName}" - >/dev/null <<< "${policy}"
     policies="$(yq '[.spec.defaultValues.apps[] | select(.namespace == strenv(nameSpace)) | strenv(VAULT_POLICY_PREFIX) + "app-" + .name] | join(",")' \
       "${apps_file}" </dev/null)"
-    echo "Create Vault role: ${nameSpace}, policies: ${VAULT_POLICY_PREFIX}namespace-common,${policies}"
+    echo "Create Vault role: ${nameSpace}, service accounts: ${service_accounts}, policies: ${VAULT_POLICY_PREFIX}namespace-common,${policies}"
     vault write "auth/${VAULT_AUTH_MOUNT}/role/${nameSpace}" \
-      bound_service_account_names=vault-secrets,arc-runner-sa \
+      bound_service_account_names="${service_accounts}" \
       bound_service_account_namespaces="${nameSpace}" \
       policies="${VAULT_POLICY_PREFIX}namespace-common,${policies}" \
       ttl=1h >/dev/null </dev/null
