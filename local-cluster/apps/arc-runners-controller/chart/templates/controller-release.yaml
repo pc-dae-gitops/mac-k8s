@@ -1,0 +1,48 @@
+{{- $chartSourceName := include "arc-runners-controller.chartSourceName" . -}}
+{{- /* The child Helm release is stored in the same namespace as this wrapper's, so its name must differ */ -}}
+{{- $upstreamReleaseName := .Values.upstream.releaseName | default (printf "%s-upstream" .Release.Name) -}}
+{{- if eq $upstreamReleaseName .Release.Name -}}
+{{- fail "upstream.releaseName must differ from the wrapper's release name" -}}
+{{- end -}}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ $chartSourceName }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  url: {{ printf "%s/%s" (trimSuffix "/" .Values.upstream.registry) .Values.upstream.chart }}
+  # The Helm chart layer, copied as is, as recommended for HelmRelease chartRef sources.
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: {{ .Values.upstream.version | quote }}
+---
+# The upstream controller is deliberately a child release rather than a chart dependency.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  targetNamespace: {{ .Release.Namespace }}
+  releaseName: {{ $upstreamReleaseName | quote }}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chartRef:
+    kind: OCIRepository
+    name: {{ $chartSourceName }}
+    namespace: {{ .Release.Namespace }}
+  values:
+    serviceAccount:
+      name: {{ .Values.serviceAccount.name | quote }}
+    replicaCount: {{ .Values.replicaCount }}

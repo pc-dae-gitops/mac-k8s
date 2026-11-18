@@ -86,6 +86,23 @@ The nr-agent and nr-otel apps send to the same New Relic account as the otel app
 
 On Kind and Docker Desktop clusters, `local-cluster/core/charts/k8s/node-exporter` deploys node-exporter in `kube-system`, alongside kube-state-metrics. otel-node scrapes it for the Grafana node dashboards.
 
+## External Vault
+
+By default External Secrets uses the in-cluster vault. Set `EXTERNAL_VAULT=true`, `VAULT_ADDR` and `VAULT_NAMESPACE`
+in the cluster repository's `.envrc` to use a namespace in an external Vault Enterprise instead; it's required on
+hosted OpenShift (osc), which has no in-cluster vault. Log in with `vault login` before running `setup.sh`. The session
+must be able to enable an auth method and write policies in the namespace, unless `VAULT_POLICY` names an existing
+shared policy. `external-vault-config.sh` creates a Kubernetes auth mount for the cluster, named after its cluster ID,
+and the cluster's secrets are written under `<VAULT_SECRETS_PATH>/<cluster ID>/`, so several clusters can share the
+namespace. The Vault server calls the cluster's API server to review tokens, so the API server must be reachable from
+it, a kind cluster's isn't. An EKS target cluster always uses its own in-cluster vault. See
+`local-cluster/core/charts/lib/addon-lib/README.md` for the settings.
+
+## GitHub Actions runners
+
+`local-cluster/apps/arc-runners-controller` and `local-cluster/apps/arc-runners` deploy GitHub Actions Runner
+Controller and runner scale sets as apps, see `local-cluster/core/charts/lib/addon-lib/README.md` for an example.
+
 ## Cluster repository branch
 
 Flux deploys the cluster repository's `main` branch. To use another branch, e.g. one for a different cluster type, set `GITHUB_MGMT_BRANCH` in that branch's `.envrc` and check it out before running `setup.sh`. It's used for the `flux-system` GitRepository in `flux-system` and in each app namespace. `setup.sh`, `crc-setup.sh` and `deploy-apps.sh` commit and push generated files to the checked out branch, so they fail if it isn't `GITHUB_MGMT_BRANCH`.

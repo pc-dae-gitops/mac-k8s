@@ -1,0 +1,6 @@
+apiVersion: v2
+name: consul
+description: Local Flux wrapper for a server-only HashiCorp Consul deployment
+type: application
+version: 0.1.0
+appVersion: "1.7.2"

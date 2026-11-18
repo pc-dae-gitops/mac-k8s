@@ -41,6 +41,13 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
 source $SCRIPT_DIR/lib.sh
 
+# The in-cluster vault, an external Vault is configured by external-vault-config.sh
+if [[ "${EXTERNAL_VAULT}" == "true" ]]; then
+  echo "ERROR: EXTERNAL_VAULT is set, use external-vault-config.sh to configure the external Vault" >&2
+  exit 1
+fi
+configure_vault_environment
+
 export VAULT_ADDR="https://vault.${local_dns}"
 export_vault_cacert
 export VAULT_TOKEN="$(jq -r '.root_token' ${VAULT_INIT_FILE})"
@@ -66,30 +73,9 @@ fi
 # the TokenReview API (the Vault Helm chart grants system:auth-delegator)
 vault write $tls_skip auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc"
 
-# Shared secrets read by every app namespace (local-cluster/templates/namespace/vault.yaml)
-vault policy write $tls_skip namespace-common - <<EOF
-path "secrets/data/github-repo-read-credentials" {
-  capabilities = ["read"]
-}
-path "secrets/data/github-repo-write-token" {
-  capabilities = ["read"]
-}
-EOF
+# Policies for the shared secrets read by every app namespace and by the flux-system SecretStore
+write_vault_common_policies $tls_skip
 
-# Secrets read by the flux-system SecretStore (local-cluster/secrets/vault-store.yaml), for the
-# ExternalSecrets in local-cluster/bases/flux/secrets.yaml
-vault policy write $tls_skip flux-system - <<EOF2
-path "secrets/data/github-repo-write-token" {
-  capabilities = ["read"]
-}
-path "secrets/data/receiver-token" {
-  capabilities = ["read"]
-}
-# Target cluster credentials, see aws-creds.sh and local-cluster/targets/eks/infra/aws-credentials.yaml
-path "secrets/data/aws-credentials" {
-  capabilities = ["read"]
-}
-EOF2
 vault write $tls_skip auth/kubernetes/role/flux-system \
   bound_service_account_names=vault-secrets \
   bound_service_account_namespaces=flux-system \

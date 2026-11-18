@@ -1,0 +1,21 @@
+# Upstream OCI chart source. Override the registry to use a corporate mirror.
+upstream:
+  # OCI registry containing the Actions Runner Controller charts.
+  registry: oci://ghcr.io/actions/actions-runner-controller-charts
+  # Upstream controller chart name.
+  chart: gha-runner-scale-set-controller
+  # Upstream chart version/tag.
+  version: "0.12.1"
+  # Flux reconciliation interval for the child source and release.
+  interval: 5m0s
+  # Helm release name of the child release, defaults to <release name>-upstream. It must differ from this wrapper's
+  # release name, both are stored in the same namespace.
+  releaseName: ""
+
+# Service account configuration passed to the upstream controller chart.
+serviceAccount:
+  # Name used by the controller deployment.
+  name: arc-controller-sa
+
+# Number of controller replicas passed to the upstream chart.
+replicaCount: 2

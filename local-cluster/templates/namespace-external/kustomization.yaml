@@ -1,0 +1,15 @@
+---
+# Used instead of local-cluster/templates/namespace when EXTERNAL_VAULT is set (cluster-config vaultStoreSuffix:
+# -external), adds the external Vault Enterprise namespace to the namespace's SecretStore
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../namespace
+patches:
+- target:
+    kind: SecretStore
+    name: vault
+  patch: |
+    - op: add
+      path: /spec/provider/vault/namespace
+      value: ${vaultNamespace}

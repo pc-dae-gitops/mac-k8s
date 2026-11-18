@@ -1,0 +1,23 @@
+# The $job name makes the hook merge this security context into the job container.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-container-hook-template
+  namespace: {{ include "arc-runners.namespace" . }}
+data:
+  pod-template.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      labels:
+        app.kubernetes.io/component: arc-runner-job
+        region: {{ default "unknown" .Values.region | quote }}
+    spec:
+      serviceAccountName: arc-runner-sa
+      securityContext:
+        runAsUser: {{ .Values.runner.uid }}
+        fsGroup: {{ .Values.runner.fsGroup }}
+      containers:
+        - name: $job
+          securityContext:
+            allowPrivilegeEscalation: true

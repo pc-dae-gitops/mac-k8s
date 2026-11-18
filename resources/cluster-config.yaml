@@ -26,6 +26,15 @@ data:
   vault_url: "${VAULT_ADDR}"
   vaultCaConfigMap: "${VAULT_CA_CONFIGMAP}"
   vaultCaKey: "${VAULT_CA_KEY}"
+  # Vault used by the External Secrets SecretStores, the in-cluster vault unless EXTERNAL_VAULT is set, see
+  # configure_vault_environment in bin/lib.sh
+  vaultServer: "${VAULT_SERVER:-https://vault.vault.svc:8200}"
+  externalVault: "${EXTERNAL_VAULT:-false}"
+  vaultKvMount: "${VAULT_KV_MOUNT:-secrets}"
+  vaultNamespace: "${VAULT_NAMESPACE:-}"
+  vaultStoreSuffix: "${VAULT_STORE_SUFFIX:-}"
+  vaultAuthMount: "${VAULT_AUTH_MOUNT:-kubernetes}"
+  vaultSecretsPrefix: "${VAULT_SECRETS_PREFIX:-}"
   commitUser: "${GITHUB_USER}"
   mirrorRegistry: "${CORP_MIRROR:-}"
   proxy: "${PROXY:-false}"

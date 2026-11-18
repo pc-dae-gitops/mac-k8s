@@ -1,0 +1,144 @@
+{{- $githubConfigUrl := required "githubConfigUrl is required" .Values.githubConfigUrl -}}
+{{- $githubConfigSecret := required "githubConfigSecret is required" .Values.githubConfigSecret -}}
+{{- $runnerScaleSetName := default .Release.Name .Values.runnerScaleSetName -}}
+{{- $namespace := include "arc-runners.namespace" . -}}
+{{- $chartSourceName := include "arc-runners.chartSourceName" . -}}
+{{- /* The child Helm release is stored in the same namespace as this wrapper's, so its name must differ */ -}}
+{{- $upstreamReleaseName := .Values.upstream.releaseName | default (printf "%s-upstream" .Release.Name) -}}
+{{- if eq $upstreamReleaseName .Release.Name -}}
+{{- fail "upstream.releaseName must differ from the wrapper's release name" -}}
+{{- end -}}
+{{- $workVolumeClaim := dict "accessModes" (list "ReadWriteOnce") "resources" (dict "requests" (dict "storage" (toString .Values.workVolume.size))) -}}
+{{- with .Values.storageClass -}}
+{{- $_ := set $workVolumeClaim "storageClassName" . -}}
+{{- end -}}
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: {{ $chartSourceName }}
+  namespace: {{ $namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  url: {{ printf "%s/%s" (trimSuffix "/" .Values.upstream.registry) .Values.upstream.chart }}
+  # The Helm chart layer, copied as is, as recommended for HelmRelease chartRef sources.
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: {{ .Values.upstream.version | quote }}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-runnerset
+  namespace: {{ $namespace }}
+spec:
+  interval: {{ .Values.upstream.interval }}
+  targetNamespace: {{ $namespace }}
+  releaseName: {{ $upstreamReleaseName | quote }}
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+      remediateLastFailure: true
+  chartRef:
+    kind: OCIRepository
+    name: {{ $chartSourceName }}
+    namespace: {{ $namespace }}
+  values:
+    runnerScaleSetName: {{ $runnerScaleSetName | quote }}
+    githubConfigUrl: {{ $githubConfigUrl | quote }}
+    githubConfigSecret: {{ $githubConfigSecret | quote }}
+    minRunners: {{ .Values.minRunners }}
+    maxRunners: {{ .Values.maxRunners }}
+    runnerGroup: {{ .Values.runnerGroup | quote }}
+    controllerServiceAccount:
+{{ toYaml .Values.controllerServiceAccount | indent 6 }}
+    {{- /* The same claim as the work volume below, as in the upstream chart's kubernetes mode examples, the chart
+    uses it for the work volume when the template has none */}}
+    containerMode:
+{{ toYaml (merge (dict "kubernetesModeWorkVolumeClaim" $workVolumeClaim) .Values.containerMode) | indent 6 }}
+    listenerTemplate:
+      metadata:
+        annotations:
+{{ toYaml .Values.listener.annotations | indent 10 }}
+      spec:
+        serviceAccountName: {{ .Values.listener.serviceAccountName | quote }}
+        containers:
+          - name: listener
+            resources:
+{{ toYaml .Values.listener.resources | indent 14 }}
+    template:
+      spec:
+        serviceAccountName: {{ .Values.runner.serviceAccountName | quote }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: {{ .Values.runner.uid }}
+          fsGroup: {{ .Values.runner.fsGroup }}
+        containers:
+          - name: runner
+            image: {{ .Values.runnerImage | quote }}
+            command:
+{{ toYaml .Values.runner.command | indent 14 }}
+            securityContext:
+{{ toYaml (merge (dict "runAsUser" .Values.runner.uid) .Values.runner.containerSecurityContext) | indent 14 }}
+            env:
+              - name: RUNNER_WORKDIR
+                value: {{ .Values.runner.env.workdir | quote }}
+              - name: ACTIONS_RUNNER_CONTAINER_HOOKS
+                value: {{ .Values.runner.env.actionsRunnerContainerHooks | quote }}
+              - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+                value: {{ .Values.runner.env.hookTemplate | quote }}
+              - name: ACTIONS_RUNNER_POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+                value: {{ .Values.runner.env.requireJobContainer | quote }}
+              - name: DISABLE_RUNNER_UPDATE
+                value: {{ .Values.runner.env.disableRunnerUpdate | quote }}
+              - name: RUNNER_NAME_PREFIX
+                value: {{ .Values.runner.env.runnerNamePrefix | quote }}
+              - name: ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT
+                value: {{ .Values.runner.env.printLogToStdout | quote }}
+              - name: ACTIONS_RUNNER_REGION
+                value: {{ .Values.region | quote }}
+            resources:
+{{ toYaml .Values.runner.resources | indent 14 }}
+            startupProbe:
+              exec:
+                command:
+{{ toYaml .Values.runner.probe.command | indent 18 }}
+              initialDelaySeconds: {{ .Values.runner.probe.initialDelaySeconds }}
+              periodSeconds: {{ .Values.runner.probe.periodSeconds }}
+              timeoutSeconds: {{ .Values.runner.probe.timeoutSeconds }}
+              failureThreshold: {{ .Values.runner.probe.failureThreshold }}
+            livenessProbe:
+              exec:
+                command:
+{{ toYaml .Values.runner.probe.command | indent 18 }}
+              initialDelaySeconds: {{ .Values.runner.probe.initialDelaySeconds }}
+              periodSeconds: {{ .Values.runner.probe.periodSeconds }}
+              timeoutSeconds: {{ .Values.runner.probe.timeoutSeconds }}
+              failureThreshold: {{ .Values.runner.probe.failureThreshold }}
+            volumeMounts:
+              - name: hook-templates
+                mountPath: /etc/arc-templates
+                readOnly: true
+              - name: work
+                mountPath: /home/runner/_work
+        volumes:
+          - name: hook-templates
+            configMap:
+              name: arc-container-hook-template
+          - name: work
+            ephemeral:
+              volumeClaimTemplate:
+                spec:
+{{ toYaml $workVolumeClaim | indent 18 }}
+    proxy:
+{{ toYaml .Values.proxy | indent 6 }}

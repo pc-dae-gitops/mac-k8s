@@ -43,15 +43,22 @@ args "$@"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/envs.sh
+source $SCRIPT_DIR/lib.sh
+
+export CLUSTER_NAME="${CLUSTER_NAME:-$(default_cluster_name)}"
+configure_vault_environment
+
+# --debug traces argument parsing, the Vault writes below contain secret values, never trace them
+set +x
 
 while IFS= read -r -d '' secret_file; do
   secret_name=${secret_file#resources/secrets/}
   secret_name=${secret_name%.json}
-  envsubst < ${secret_file} | vault kv put ${tls_skip} -mount=secrets ${secret_name} -
+  envsubst < ${secret_file} | vault kv put ${tls_skip} -mount="${VAULT_KV_MOUNT}" "${VAULT_SECRETS_PREFIX}${secret_name}" -
 done < <(find resources/secrets -type f -name '*.json' -print0)
 
-vault kv put ${tls_skip} -mount=secrets github-repo-write-token token=${GITHUB_TOKEN_GITOPS_WRITE}
-vault kv put ${tls_skip} -mount=secrets github-repo-read-credentials username=git password=${GITHUB_TOKEN_GITOPS_READ}
+vault kv put ${tls_skip} -mount="${VAULT_KV_MOUNT}" "${VAULT_SECRETS_PREFIX}github-repo-write-token" token=${GITHUB_TOKEN_GITOPS_WRITE}
+vault kv put ${tls_skip} -mount="${VAULT_KV_MOUNT}" "${VAULT_SECRETS_PREFIX}github-repo-read-credentials" username=git password=${GITHUB_TOKEN_GITOPS_READ}
 
 RECEIVER_TOKEN=$(head -c 12 /dev/urandom | shasum | cut -d ' ' -f1)
-vault kv put ${tls_skip} -mount=secrets receiver-token token=${RECEIVER_TOKEN}
+vault kv put ${tls_skip} -mount="${VAULT_KV_MOUNT}" "${VAULT_SECRETS_PREFIX}receiver-token" token=${RECEIVER_TOKEN}
